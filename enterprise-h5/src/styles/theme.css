@@ -1,0 +1,321 @@
+/**
+ * 企业端 H5 政务风格主题（微信公众号内使用）
+ */
+:root {
+  --esc-primary: #1677ff;
+  --esc-primary-dark: #0f6bff;
+  --esc-primary-light: #e8f3ff;
+  --esc-bg: #f5f7fb;
+  --esc-card: #ffffff;
+  --esc-text: #1f2937;
+  --esc-text-secondary: #6b7280;
+  --esc-text-muted: #9ca3af;
+  --esc-border: #e5e7eb;
+  --esc-success: #16a34a;
+  --esc-warning: #f59e0b;
+  --esc-danger: #ef4444;
+  --esc-radius: 12px;
+  --esc-radius-sm: 8px;
+  --esc-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  --esc-nav-height: 46px;
+
+  /* Vant 主题变量 */
+  --van-primary-color: var(--esc-primary);
+  --van-success-color: var(--esc-success);
+  --van-warning-color: var(--esc-warning);
+  --van-danger-color: var(--esc-danger);
+  --van-text-color: var(--esc-text);
+  --van-text-color-2: var(--esc-text-secondary);
+  --van-text-color-3: var(--esc-text-muted);
+  --van-border-color: var(--esc-border);
+  --van-background: var(--esc-bg);
+  --van-background-2: var(--esc-card);
+  --van-radius-lg: var(--esc-radius);
+  --van-radius-md: var(--esc-radius-sm);
+}
+
+.page {
+  min-height: 100vh;
+  background: var(--esc-bg);
+  padding-bottom: env(safe-area-inset-bottom);
+  color: var(--esc-text);
+}
+
+.page-body {
+  padding-top: var(--esc-nav-height);
+}
+
+.page-body--action {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.page-body--tabs {
+  padding-top: var(--esc-nav-height);
+}
+
+/* 列表卡片 */
+.list-card {
+  background: var(--esc-card);
+  margin: 10px 12px 0;
+  border-radius: var(--esc-radius);
+  padding: 14px 16px;
+  box-shadow: var(--esc-shadow);
+  border: 1px solid var(--esc-border);
+}
+
+.list-card:active {
+  opacity: 0.85;
+}
+
+.list-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.list-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--esc-text);
+  flex: 1;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.list-card__no {
+  font-size: 12px;
+  color: var(--esc-text-muted);
+  margin-bottom: 6px;
+}
+
+.list-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--esc-text-secondary);
+}
+
+.list-card__summary {
+  font-size: 13px;
+  color: var(--esc-text-secondary);
+  margin-top: 6px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* 详情状态条 */
+.status-banner {
+  padding: 16px 20px;
+  color: #fff;
+}
+
+.status-banner__text {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.status-banner__sub {
+  font-size: 12px;
+  opacity: 0.9;
+  word-break: break-all;
+}
+
+/* 内容块 */
+.content-block {
+  margin: 12px;
+  background: var(--esc-card);
+  border-radius: var(--esc-radius);
+  overflow: hidden;
+  box-shadow: var(--esc-shadow);
+  border: 1px solid var(--esc-border);
+}
+
+.content-block__title {
+  padding: 12px 16px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--esc-text);
+}
+
+.content-text {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--esc-text-secondary);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tip-box {
+  margin: 12px;
+  padding: 12px 14px;
+  background: var(--esc-primary-light);
+  border-radius: var(--esc-radius-sm);
+  font-size: 13px;
+  color: var(--esc-primary-dark);
+  line-height: 1.6;
+  border: 1px solid rgba(22, 119, 255, 0.15);
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: var(--esc-card);
+  box-shadow: 0 -2px 12px rgba(15, 23, 42, 0.08);
+  z-index: 100;
+  border-top: 1px solid var(--esc-border);
+}
+
+.section-gap {
+  height: 8px;
+}
+
+/* NavBar 统一 */
+:deep(.van-nav-bar) {
+  background: var(--esc-card);
+}
+
+:deep(.van-nav-bar .van-nav-bar__title) {
+  font-weight: 600;
+  color: var(--esc-text);
+}
+
+/* 办理时间线 */
+.timeline-wrap {
+  margin: 12px;
+  background: var(--esc-card);
+  border-radius: var(--esc-radius);
+  padding: 16px;
+  box-shadow: var(--esc-shadow);
+  border: 1px solid var(--esc-border);
+}
+
+.timeline-item {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--esc-border);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.timeline-dot.first {
+  background: var(--esc-primary);
+}
+
+.timeline-line {
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  width: 2px;
+  height: calc(100% - 10px);
+  background: var(--esc-border);
+}
+
+.timeline-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tl-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--esc-text);
+}
+
+.tl-time {
+  font-size: 11px;
+  color: var(--esc-text-muted);
+  flex-shrink: 0;
+}
+
+.tl-operator {
+  font-size: 12px;
+  color: var(--esc-text-secondary);
+  margin-bottom: 4px;
+}
+
+.tl-opinion {
+  font-size: 13px;
+  color: var(--esc-text-secondary);
+  background: var(--esc-bg);
+  border-radius: var(--esc-radius-sm);
+  padding: 8px 10px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.section-title {
+  padding: 16px 16px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--esc-text);
+}
+
+.action-inline {
+  padding: 12px 16px 0;
+}
+
+/* 会议室列表卡片 */
+.room-card {
+  background: var(--esc-card);
+  margin: 10px 12px 0;
+  border-radius: var(--esc-radius);
+  overflow: hidden;
+  box-shadow: var(--esc-shadow);
+  border: 1px solid var(--esc-border);
+}
+
+.room-card:active {
+  opacity: 0.85;
+}
+
+.cover-placeholder {
+  height: 140px;
+  background: var(--esc-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--esc-card);
+  border-bottom: 1px solid var(--esc-border);
+}
+
+.filter-tag.active {
+  border-color: var(--esc-primary);
+  color: var(--esc-primary);
+  background: var(--esc-primary-light);
+}

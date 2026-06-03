@@ -1,0 +1,26 @@
+@import './theme.css';
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  background: var(--esc-bg);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 14px;
+  color: var(--esc-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+}

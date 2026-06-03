@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3 -c \"from app.models import *; print\\('models OK'\\)\")",
+      "Bash(python3 -c \"from app.api.auth.router import router; print\\('auth router OK'\\)\")",
+      "Bash(python3 -c \"from app.api.enterprise.router import router; print\\('enterprise router OK'\\)\")",
+      "Bash(python3 -c \"from app.api.admin.router import router; print\\('admin router OK'\\)\")",
+      "Bash(python3 -c \"from scripts.init_dict import init_dict; print\\('init_dict OK'\\)\")",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(curl -s http://localhost:8000/api/enterprise/gov-meetings -H \"Authorization: Bearer test\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('code'\\), d.get\\('message'\\)\\)\")",
+      "Bash(bash:*)",
+      "Bash(curl -s -X POST 'http://localhost:8000/api/auth/enterprise/mock-login' -H 'Content-Type: application/json' -d '{\"creditCode\":\"91371000GM1779931016\",\"enterpriseName\":\"政企约见测试企业1779931016\",\"legalPersonName\":\"张三\",\"legalPersonIdNo\":\"370102199001011234\",\"legalPersonMobile\":\"13800138000\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/enterprise/gov-meetings/1/evaluate -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/api/common/health)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d\\)\")",
+      "Bash(.venv/bin/python:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(curl -s http://localhost:8000/docs)",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); paths=list\\(d['paths'].keys\\(\\)\\); print\\(f'Total endpoints: {len\\(paths\\)}'\\); [print\\(f'  {p}'\\) for p in sorted\\(paths\\)]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f'  {m.upper\\(\\)} {p}'\\) for p,methods in d['paths'].items\\(\\) for m in methods if m!='parameters' and 'gov' in p]\")",
+      "Bash(npm install:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s \"http://127.0.0.1:8000/openapi.json\")",
+      "Bash(python3 -c \" import sys,json spec=json.load\\(sys.stdin\\) for path,methods in spec['paths'].items\\(\\): if 'dict' in path.lower\\(\\): for m in methods: print\\(m.upper\\(\\), path\\) \")",
+      "Bash(.venv/bin/alembic upgrade:*)"
+    ]
+  }
+}

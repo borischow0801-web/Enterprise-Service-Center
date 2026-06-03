@@ -1,0 +1,84 @@
+:root {
+  --admin-primary: #1677ff;
+  --admin-text: #1f2937;
+  --admin-text-secondary: #6b7280;
+  --admin-border: #e5e7eb;
+  --admin-bg: #f5f7fb;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--admin-text);
+  }
+}
+
+.filter-form {
+  background: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid var(--admin-border);
+}
+
+.table-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.detail-card {
+  background: #fff;
+  border-radius: 8px;
+  border: 1px solid var(--admin-border);
+  padding: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+
+.detail-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--admin-text);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.filter-card {
+  margin-bottom: 16px;
+  border: 1px solid var(--admin-border);
+}
+
+.filter-card .el-form-item {
+  margin-bottom: 12px;
+}
+
+.back-btn {
+  margin-bottom: 16px;
+}
