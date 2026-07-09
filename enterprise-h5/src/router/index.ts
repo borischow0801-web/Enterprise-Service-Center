@@ -11,17 +11,6 @@ const router = createRouter({
       component: () => import('@/views/login/MockLogin.vue'),
       meta: { requiresAuth: false },
     },
-    {
-      path: '/ui-preview',
-      redirect: '/ui-preview/home',
-      meta: { requiresAuth: false },
-    },
-    {
-      path: '/ui-preview/:page(home|appeals|meeting-rooms)',
-      name: 'CoastalUiPreview',
-      component: () => import('@/views/ui-preview/CoastalPrototype.vue'),
-      meta: { requiresAuth: false, title: 'UI 原型预览' },
-    },
     { path: '/', redirect: '/home' },
     {
       path: '/home',
