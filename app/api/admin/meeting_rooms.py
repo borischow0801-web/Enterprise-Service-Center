@@ -117,7 +117,7 @@ def get_room_detail(room_id: int, current: CurrentAdmin, db: Session = Depends(g
 @router.put("/{room_id}", summary="修改会议室")
 def update_room(room_id: int, body: RoomUpdateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
-    result = svc.update_room(room_id, body.model_dump(exclude_none=True), _op(current))
+    result = svc.update_room(room_id, body.model_dump(exclude_unset=True), _op(current))
     return success(data=result, message="修改成功")
 
 

@@ -39,3 +39,41 @@ export function updateDictionary(id: number, data: Partial<DictionaryItem>) {
 export function toggleDictionaryStatus(id: number, enabled: number) {
   return patch<DictionaryItem>(`/api/admin/dictionaries/${id}/status`, { enabled })
 }
+
+
+export interface ServiceCenterItem {
+  id: number
+  centerName: string
+  regionCode: string
+  regionName: string
+  address?: string | null
+  contactName?: string | null
+  contactPhone?: string | null
+  status: 'ENABLED' | 'DISABLED'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ServiceCenterQuery {
+  regionCode?: string
+  centerName?: string
+  status?: string
+  pageNo?: number
+  pageSize?: number
+}
+
+export function listServiceCenters(params: ServiceCenterQuery) {
+  return get<PageResult<ServiceCenterItem>>('/api/admin/service-centers/page', params as Record<string, unknown>)
+}
+
+export function createServiceCenter(data: Partial<ServiceCenterItem>) {
+  return post<ServiceCenterItem>('/api/admin/service-centers', data)
+}
+
+export function updateServiceCenter(id: number, data: Partial<ServiceCenterItem>) {
+  return put<ServiceCenterItem>(`/api/admin/service-centers/${id}`, data)
+}
+
+export function toggleServiceCenterStatus(id: number, status: 'ENABLED' | 'DISABLED') {
+  return patch<ServiceCenterItem>(`/api/admin/service-centers/${id}/status`, { status })
+}

@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
-from app.core.response import success
-from app.core.exceptions import NotFoundException
+from app.core.response import success, paginated
+from app.core.exceptions import NotFoundException, ParamException
+from app.models.system import ServiceCenter, SysOperationLog
 from app.repositories.sys_user_repo import SysUserSnapshotRepository
 from app.api.admin.appeals import router as admin_appeals_router
 from app.api.admin.meeting_rooms import router as admin_meeting_rooms_router
@@ -23,6 +26,168 @@ router.include_router(admin_gov_meetings_router, prefix="/gov-meetings", tags=["
 router.include_router(admin_dict_router, prefix="/dictionaries", tags=["管理端-字典"])
 router.include_router(admin_op_log_router, prefix="/operation-logs", tags=["管理端-操作日志"])
 router.include_router(admin_dashboard_router, prefix="/dashboard", tags=["管理端-工作台"])
+
+
+def _service_center_to_dict(item: ServiceCenter) -> dict:
+    return {
+        "id": item.id,
+        "centerName": item.center_name,
+        "regionCode": item.region_code,
+        "regionName": item.region_name,
+        "address": item.address,
+        "contactName": item.contact_name,
+        "contactPhone": item.contact_phone,
+        "status": item.status,
+        "createdAt": item.created_at.isoformat() if item.created_at else None,
+        "updatedAt": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+def _write_service_center_log(db: Session, current: dict, op_type: str, center_name: str):
+    db.add(SysOperationLog(
+        operator_type="USER",
+        operator_id=str(current.get("user_id", "")),
+        operator_name=current.get("real_name", ""),
+        business_type="SERVICE_CENTER",
+        operation_type=op_type,
+        operation_content=f"服务中心={center_name}，操作={op_type}",
+    ))
+
+
+@router.get("/service-centers", summary="服务中心列表")
+def list_service_centers(
+    current: CurrentAdmin,
+    db: Session = Depends(get_db),
+    regionCode: str | None = Query(None),
+):
+    q = db.query(ServiceCenter).filter(
+        ServiceCenter.deleted_flag == 0,
+        ServiceCenter.status == "ENABLED",
+    )
+    current_region_code = current.get("region_code")
+    if current.get("data_scope") == "REGION" and current_region_code:
+        q = q.filter(ServiceCenter.region_code == current_region_code)
+    if regionCode:
+        q = q.filter(ServiceCenter.region_code == regionCode)
+    centers = q.order_by(ServiceCenter.region_code, ServiceCenter.id).all()
+    return success(data=[_service_center_to_dict(item) for item in centers])
+
+
+@router.get("/service-centers/page", summary="服务中心分页列表")
+def list_service_centers_page(
+    current: CurrentAdmin,
+    db: Session = Depends(get_db),
+    regionCode: str | None = Query(None),
+    centerName: str | None = Query(None),
+    status: str | None = Query(None),
+    pageNo: int = Query(1, ge=1),
+    pageSize: int = Query(20, ge=1, le=200),
+):
+    q = db.query(ServiceCenter).filter(ServiceCenter.deleted_flag == 0)
+    current_region_code = current.get("region_code")
+    if current.get("data_scope") == "REGION" and current_region_code:
+        q = q.filter(ServiceCenter.region_code == current_region_code)
+    if regionCode:
+        q = q.filter(ServiceCenter.region_code == regionCode)
+    if centerName:
+        q = q.filter(ServiceCenter.center_name.contains(centerName))
+    if status:
+        q = q.filter(ServiceCenter.status == status)
+    total = q.count()
+    records = q.order_by(ServiceCenter.region_code, ServiceCenter.id)\
+        .offset((pageNo - 1) * pageSize).limit(pageSize).all()
+    return paginated(
+        records=[_service_center_to_dict(item) for item in records],
+        total=total,
+        page_no=pageNo,
+        page_size=pageSize,
+    )
+
+
+@router.post("/service-centers", summary="新增服务中心")
+def create_service_center(body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+    center_name = (body.get("centerName") or "").strip()
+    region_code = (body.get("regionCode") or "").strip()
+    region_name = (body.get("regionName") or "").strip()
+    if not center_name or not region_code or not region_name:
+        raise ParamException("中心名称、所属区划不能为空")
+    exists = db.query(ServiceCenter).filter(
+        ServiceCenter.center_name == center_name,
+        ServiceCenter.region_code == region_code,
+        ServiceCenter.deleted_flag == 0,
+    ).first()
+    if exists:
+        raise ParamException("该区划下已存在同名服务中心")
+    item = ServiceCenter(
+        center_name=center_name,
+        region_code=region_code,
+        region_name=region_name,
+        address=body.get("address") or None,
+        contact_name=body.get("contactName") or None,
+        contact_phone=body.get("contactPhone") or None,
+        status=body.get("status") or "ENABLED",
+    )
+    db.add(item)
+    _write_service_center_log(db, current, "SERVICE_CENTER_CREATE", center_name)
+    db.commit()
+    db.refresh(item)
+    return success(data=_service_center_to_dict(item), message="新增成功")
+
+
+@router.patch("/service-centers/{center_id}/status", summary="启用/停用服务中心")
+def toggle_service_center_status(center_id: int, body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+    item = db.query(ServiceCenter).filter(
+        ServiceCenter.id == center_id,
+        ServiceCenter.deleted_flag == 0,
+    ).first()
+    if not item:
+        raise NotFoundException("服务中心不存在")
+    status = body.get("status")
+    if status not in ["ENABLED", "DISABLED"]:
+        raise ParamException("无效的状态值")
+    item.status = status
+    item.updated_at = datetime.utcnow()
+    op_type = "SERVICE_CENTER_ENABLE" if status == "ENABLED" else "SERVICE_CENTER_DISABLE"
+    _write_service_center_log(db, current, op_type, item.center_name)
+    db.commit()
+    db.refresh(item)
+    return success(data=_service_center_to_dict(item), message="操作成功")
+
+
+@router.put("/service-centers/{center_id}", summary="修改服务中心")
+def update_service_center(center_id: int, body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+    item = db.query(ServiceCenter).filter(
+        ServiceCenter.id == center_id,
+        ServiceCenter.deleted_flag == 0,
+    ).first()
+    if not item:
+        raise NotFoundException("服务中心不存在")
+    center_name = (body.get("centerName", item.center_name) or "").strip()
+    region_code = (body.get("regionCode", item.region_code) or "").strip()
+    region_name = (body.get("regionName", item.region_name) or "").strip()
+    if not center_name or not region_code or not region_name:
+        raise ParamException("中心名称、所属区划不能为空")
+    exists = db.query(ServiceCenter).filter(
+        ServiceCenter.center_name == center_name,
+        ServiceCenter.region_code == region_code,
+        ServiceCenter.deleted_flag == 0,
+        ServiceCenter.id != center_id,
+    ).first()
+    if exists:
+        raise ParamException("该区划下已存在同名服务中心")
+    item.center_name = center_name
+    item.region_code = region_code
+    item.region_name = region_name
+    item.address = body.get("address") or None
+    item.contact_name = body.get("contactName") or None
+    item.contact_phone = body.get("contactPhone") or None
+    if "status" in body:
+        item.status = body.get("status") or "ENABLED"
+    item.updated_at = datetime.utcnow()
+    _write_service_center_log(db, current, "SERVICE_CENTER_UPDATE", center_name)
+    db.commit()
+    db.refresh(item)
+    return success(data=_service_center_to_dict(item), message="修改成功")
 
 
 @router.get("/me", summary="获取当前管理端用户信息")

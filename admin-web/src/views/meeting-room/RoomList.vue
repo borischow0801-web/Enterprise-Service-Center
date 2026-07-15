@@ -131,7 +131,27 @@
           </el-col>
         </el-row>
         <el-form-item label="所属中心">
-          <el-input v-model="roomForm.serviceCenterName" placeholder="企服中心名称（可选）" />
+          <el-select
+            v-model="roomForm.serviceCenterId"
+            placeholder="请选择所属中心（可选）"
+            clearable
+            filterable
+            style="width:100%"
+            :disabled="!roomForm.regionCode"
+            :loading="serviceCenterLoading"
+            @change="onServiceCenterChange"
+            @clear="clearServiceCenter"
+          >
+            <el-option
+              v-for="center in serviceCenterOptions"
+              :key="center.id"
+              :label="center.centerName"
+              :value="center.id"
+            >
+              <span>{{ center.centerName }}</span>
+              <span style="float:right;color:#909399;font-size:12px">{{ center.regionName }}</span>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="地址">
           <el-input v-model="roomForm.address" placeholder="详细地址" />
@@ -430,11 +450,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import {
   getMeetingRoomList, getMeetingRoomDetail, createMeetingRoom, updateMeetingRoom,
+  getServiceCenterList,
   updateMeetingRoomStatus, updateMeetingRoomOpenRules, getMeetingRoomOpenRules,
   createSpecialDate, createRoomOccupy,
   getMaterialRuleList, createMaterialRule, updateMaterialRule, deleteMaterialRule,
 } from '@/api/meetingRoom'
-import type { MeetingRoom, OpenRuleItem, MaterialRule, RoomImageItem } from '@/api/meetingRoom'
+import type { MeetingRoom, OpenRuleItem, MaterialRule, RoomImageItem, ServiceCenter } from '@/api/meetingRoom'
 import { getDictionary, uploadAttachment } from '@/api/common'
 import { MAX_UPLOAD_TIP, validateFileSize } from '@/constants/upload'
 
@@ -459,6 +480,8 @@ const facilityOptions = ref<{value:string;label:string}[]>([
   { value: '停车场', label: '停车场' },
 ])
 const enterpriseTypeOptions = ref<{value:string;label:string}[]>([])
+const serviceCenterOptions = ref<ServiceCenter[]>([])
+const serviceCenterLoading = ref(false)
 
 onMounted(async () => {
   const [regions, roomTypes, enterpriseTypes] = await Promise.all([
@@ -543,15 +566,41 @@ const roomRules = {
   capacity: [{ required: true, message: '请输入容量', trigger: 'blur' }],
 }
 
-function onRegionChange(val: string) {
+async function fetchServiceCenters(regionCode?: string) {
+  serviceCenterLoading.value = true
+  try {
+    serviceCenterOptions.value = await getServiceCenterList({ regionCode: regionCode || undefined })
+  } finally {
+    serviceCenterLoading.value = false
+  }
+}
+
+async function onRegionChange(val: string) {
   const opt = regionOptions.value.find(r => r.value === val)
   roomForm.regionName = opt?.label || ''
+  clearServiceCenter()
+  await fetchServiceCenters(val)
+}
+
+function onServiceCenterChange(val?: number) {
+  const center = serviceCenterOptions.value.find(item => item.id === val)
+  roomForm.serviceCenterName = center?.centerName || ''
+  if (center) {
+    roomForm.regionCode = center.regionCode
+    roomForm.regionName = center.regionName
+  }
+}
+
+function clearServiceCenter() {
+  roomForm.serviceCenterId = undefined
+  roomForm.serviceCenterName = ''
 }
 
 async function openRoomForm(room: MeetingRoom | null) {
   currentRoom.value = room
   if (room) {
     const detail = await getMeetingRoomDetail(room.id)
+    await fetchServiceCenters(detail.regionCode)
     const images = (detail.images || []).map(img => ({ ...img }))
     Object.assign(roomForm, {
       roomName: detail.roomName,
@@ -575,6 +624,7 @@ async function openRoomForm(room: MeetingRoom | null) {
       capacity: 10, facilities: [], description: '', bookingNotice: '',
       coverAttachmentId: undefined, images: [],
     })
+    serviceCenterOptions.value = []
   }
   roomFormRef.value?.clearValidate()
   roomFormVisible.value = true
@@ -634,7 +684,8 @@ async function handleRoomSubmit() {
       roomType: roomForm.roomType || undefined,
       regionCode: roomForm.regionCode,
       regionName: roomForm.regionName,
-      serviceCenterName: roomForm.serviceCenterName || undefined,
+      serviceCenterId: roomForm.serviceCenterId ?? null,
+      serviceCenterName: roomForm.serviceCenterName || null,
       address: roomForm.address || undefined,
       capacity: roomForm.capacity,
       facilities: roomForm.facilities.length ? roomForm.facilities : undefined,

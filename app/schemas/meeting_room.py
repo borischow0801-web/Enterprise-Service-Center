@@ -24,6 +24,10 @@ class RoomCreateRequest(BaseModel):
 class RoomUpdateRequest(BaseModel):
     roomName: Optional[str] = Field(None, max_length=200)
     roomType: Optional[str] = None
+    regionCode: Optional[str] = None
+    regionName: Optional[str] = None
+    serviceCenterId: Optional[int] = None
+    serviceCenterName: Optional[str] = Field(None, max_length=100)
     address: Optional[str] = None
     capacity: Optional[int] = Field(None, ge=1)
     facilities: Optional[List[str]] = None

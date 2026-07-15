@@ -9,11 +9,28 @@
 html,
 body,
 #app {
-  height: 100%;
+  min-height: 100%;
   background: var(--esc-bg);
 }
 
+html,
 body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#app::-webkit-scrollbar,
+.van-popup::-webkit-scrollbar,
+.van-popup *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+body {
+  overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
   font-size: 14px;
   color: var(--esc-text);

@@ -21,12 +21,85 @@
             >
               {{ item.label }}
             </el-menu-item>
+            <el-menu-item v-if="group.key === 'meeting-room'" :index="SERVICE_CENTER_KEY">
+              所属中心维护
+            </el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-aside>
 
       <el-main class="dict-main">
-        <template v-if="currentMeta">
+        <template v-if="isServiceCenterMode">
+          <div class="dict-panel-header">
+            <div class="dict-panel-title">
+              <h3>所属中心维护</h3>
+              <el-tag type="success" size="small">service_center</el-tag>
+            </div>
+            <p class="dict-panel-desc">维护共享会议室、预约材料规则等业务使用的企业服务中心。所属中心按区划关联，停用后不再出现在会议室选择列表中。</p>
+            <div class="dict-panel-actions">
+              <el-form :model="centerFilter" inline class="filter-inline">
+                <el-form-item label="区划">
+                  <el-select v-model="centerFilter.regionCode" placeholder="全部" clearable style="width:130px">
+                    <el-option v-for="r in regionOptions" :key="r.value" :label="r.label" :value="r.value" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="名称">
+                  <el-input v-model="centerFilter.centerName" placeholder="筛选中心名称" clearable style="width:150px" />
+                </el-form-item>
+                <el-form-item label="状态">
+                  <el-select v-model="centerFilter.status" placeholder="全部" clearable style="width:100px">
+                    <el-option label="启用" value="ENABLED" />
+                    <el-option label="停用" value="DISABLED" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleCenterSearch">查询</el-button>
+                  <el-button @click="handleCenterReset">重置</el-button>
+                </el-form-item>
+              </el-form>
+              <el-button type="primary" @click="openCenterForm()">新增所属中心</el-button>
+            </div>
+          </div>
+
+          <el-card shadow="never" class="table-card">
+            <el-table :data="centerList" v-loading="centerLoading" stripe>
+              <el-table-column prop="centerName" label="中心名称" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="regionName" label="所属区划" width="110" />
+              <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="contactName" label="联系人" width="100" />
+              <el-table-column prop="contactPhone" label="联系电话" width="130" />
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }">
+                  <el-tag :type="row.status === 'ENABLED' ? 'success' : 'info'" size="small">
+                    {{ row.status === 'ENABLED' ? '启用' : '停用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="150" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openCenterForm(row)">编辑</el-button>
+                  <el-button
+                    link
+                    :type="row.status === 'ENABLED' ? 'warning' : 'success'"
+                    @click="handleCenterToggle(row)"
+                  >{{ row.status === 'ENABLED' ? '停用' : '启用' }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="pagination-wrap">
+              <el-pagination
+                v-model:current-page="centerPageNo"
+                v-model:page-size="centerPageSize"
+                :total="centerTotal"
+                :page-sizes="[20, 50, 100]"
+                layout="total, sizes, prev, pager, next"
+                @change="fetchCenterList"
+              />
+            </div>
+          </el-card>
+        </template>
+
+        <template v-else-if="currentMeta">
           <div class="dict-panel-header">
             <div class="dict-panel-title">
               <h3>{{ currentMeta.label }}</h3>
@@ -98,6 +171,46 @@
     </el-container>
 
     <el-dialog
+      v-model="centerFormVisible"
+      :title="centerEditingId ? '编辑所属中心' : '新增所属中心'"
+      width="560px"
+      :close-on-click-modal="false"
+    >
+      <el-alert type="info" :closable="false" show-icon style="margin-bottom:12px">
+        所属中心是会议室、材料规则等业务的关联对象；已被使用的中心建议停用，不建议改名为完全不同的机构。
+      </el-alert>
+      <el-form ref="centerFormRef" :model="centerForm" :rules="centerFormRules" label-width="100px">
+        <el-form-item label="中心名称" prop="centerName">
+          <el-input v-model="centerForm.centerName" placeholder="如 环翠区企业综合服务中心" />
+        </el-form-item>
+        <el-form-item label="所属区划" prop="regionCode">
+          <el-select v-model="centerForm.regionCode" placeholder="请选择区划" style="width:100%" @change="onCenterRegionChange">
+            <el-option v-for="r in regionOptions" :key="r.value" :label="r.label" :value="r.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="地址">
+          <el-input v-model="centerForm.address" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="联系人">
+          <el-input v-model="centerForm.contactName" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="centerForm.contactPhone" placeholder="可选" />
+        </el-form-item>
+        <el-form-item label="启用状态">
+          <el-radio-group v-model="centerForm.status">
+            <el-radio value="ENABLED">启用</el-radio>
+            <el-radio value="DISABLED">停用</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="centerFormVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleCenterSubmit">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="formVisible"
       :title="editingId ? '编辑字典项' : '新增字典项'"
       width="520px"
@@ -163,12 +276,17 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   listDictionaries, createDictionary, updateDictionary, toggleDictionaryStatus,
-  type DictionaryItem,
+  listServiceCenters, createServiceCenter, updateServiceCenter, toggleServiceCenterStatus,
+  type DictionaryItem, type ServiceCenterItem,
 } from '@/api/dictionary'
+import { getDictionary } from '@/api/common'
 import { DICT_MANAGE_GROUPS, DEFAULT_DICT_TYPE, getDictMeta } from '@/constants/dictManage'
+
+const SERVICE_CENTER_KEY = '__SERVICE_CENTER__'
 
 const currentDictType = ref(DEFAULT_DICT_TYPE)
 const currentMeta = computed(() => getDictMeta(currentDictType.value))
+const isServiceCenterMode = computed(() => currentDictType.value === SERVICE_CENTER_KEY)
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -179,6 +297,16 @@ const pageSize = ref(50)
 const formVisible = ref(false)
 const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
+
+const regionOptions = ref<{value:string;label:string}[]>([])
+const centerLoading = ref(false)
+const centerList = ref<ServiceCenterItem[]>([])
+const centerTotal = ref(0)
+const centerPageNo = ref(1)
+const centerPageSize = ref(20)
+const centerFormVisible = ref(false)
+const centerEditingId = ref<number | null>(null)
+const centerFormRef = ref<FormInstance>()
 
 const filter = reactive({
   dictCode: '',
@@ -196,15 +324,44 @@ const form = reactive({
   extraJson: '',
 })
 
+const centerFilter = reactive({
+  regionCode: '',
+  centerName: '',
+  status: '' as '' | 'ENABLED' | 'DISABLED',
+})
+
+const centerForm = reactive({
+  centerName: '',
+  regionCode: '',
+  regionName: '',
+  address: '',
+  contactName: '',
+  contactPhone: '',
+  status: 'ENABLED' as 'ENABLED' | 'DISABLED',
+})
+
 const formRules: FormRules = {
   dictCode: [{ required: true, message: '请输入字典编码', trigger: 'blur' }],
   dictLabel: [{ required: true, message: '请输入字典名称', trigger: 'blur' }],
 }
 
+const centerFormRules: FormRules = {
+  centerName: [{ required: true, message: '请输入中心名称', trigger: 'blur' }],
+  regionCode: [{ required: true, message: '请选择所属区划', trigger: 'change' }],
+}
+
 function handleMenuSelect(dictType: string) {
-  if (!getDictMeta(dictType)) return
+  if (dictType !== SERVICE_CENTER_KEY && !getDictMeta(dictType)) return
   if (dictType === currentDictType.value) return
   currentDictType.value = dictType
+  if (dictType === SERVICE_CENTER_KEY) {
+    centerPageNo.value = 1
+    centerFilter.regionCode = ''
+    centerFilter.centerName = ''
+    centerFilter.status = ''
+    fetchCenterList()
+    return
+  }
   pageNo.value = 1
   filter.dictCode = ''
   filter.dictLabel = ''
@@ -304,7 +461,112 @@ async function handleToggle(row: DictionaryItem) {
   fetchList()
 }
 
-onMounted(fetchList)
+
+async function loadRegionOptions() {
+  const regions = await getDictionary('REGION')
+  regionOptions.value = regions.map(d => ({ value: d.dictCode, label: d.dictLabel }))
+}
+
+async function fetchCenterList() {
+  centerLoading.value = true
+  try {
+    const res = await listServiceCenters({
+      regionCode: centerFilter.regionCode || undefined,
+      centerName: centerFilter.centerName || undefined,
+      status: centerFilter.status || undefined,
+      pageNo: centerPageNo.value,
+      pageSize: centerPageSize.value,
+    })
+    centerList.value = res.records || []
+    centerTotal.value = res.total || 0
+  } finally {
+    centerLoading.value = false
+  }
+}
+
+function handleCenterSearch() {
+  centerPageNo.value = 1
+  fetchCenterList()
+}
+
+function handleCenterReset() {
+  centerFilter.regionCode = ''
+  centerFilter.centerName = ''
+  centerFilter.status = ''
+  centerPageNo.value = 1
+  fetchCenterList()
+}
+
+function onCenterRegionChange(regionCode: string) {
+  const opt = regionOptions.value.find(r => r.value === regionCode)
+  centerForm.regionName = opt?.label || ''
+}
+
+function openCenterForm(row?: ServiceCenterItem) {
+  centerEditingId.value = row?.id ?? null
+  if (row) {
+    Object.assign(centerForm, {
+      centerName: row.centerName,
+      regionCode: row.regionCode,
+      regionName: row.regionName,
+      address: row.address || '',
+      contactName: row.contactName || '',
+      contactPhone: row.contactPhone || '',
+      status: row.status,
+    })
+  } else {
+    Object.assign(centerForm, {
+      centerName: '', regionCode: '', regionName: '', address: '',
+      contactName: '', contactPhone: '', status: 'ENABLED',
+    })
+  }
+  centerFormRef.value?.clearValidate()
+  centerFormVisible.value = true
+}
+
+async function handleCenterSubmit() {
+  const valid = await centerFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  submitting.value = true
+  try {
+    const payload = {
+      centerName: centerForm.centerName,
+      regionCode: centerForm.regionCode,
+      regionName: centerForm.regionName,
+      address: centerForm.address || undefined,
+      contactName: centerForm.contactName || undefined,
+      contactPhone: centerForm.contactPhone || undefined,
+      status: centerForm.status,
+    }
+    if (centerEditingId.value) {
+      await updateServiceCenter(centerEditingId.value, payload)
+      ElMessage.success('修改成功')
+    } else {
+      await createServiceCenter(payload)
+      ElMessage.success('新增成功')
+    }
+    centerFormVisible.value = false
+    fetchCenterList()
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleCenterToggle(row: ServiceCenterItem) {
+  const status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED'
+  const action = status === 'ENABLED' ? '启用' : '停用'
+  try {
+    await ElMessageBox.confirm(`确定${action}所属中心「${row.centerName}」吗？`, '确认', { type: 'warning' })
+  } catch { return }
+  await toggleServiceCenterStatus(row.id, status)
+  ElMessage.success(status === 'ENABLED' ? '已启用' : '已停用')
+  fetchCenterList()
+}
+
+onMounted(async () => {
+  await loadRegionOptions()
+  fetchList()
+})
 </script>
 
 <style scoped>

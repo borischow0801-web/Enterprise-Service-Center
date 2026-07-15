@@ -17,7 +17,7 @@ from app.core.exceptions import (
 from app.repositories.meeting_room_repo import MeetingRoomRepository, generate_booking_no
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.models.meeting_room import MeetingRoom, MeetingRoomBooking
-from app.models.system import SysAttachment
+from app.models.system import ServiceCenter, SysAttachment
 
 
 def _parse_datetime(val) -> datetime:
@@ -120,6 +120,15 @@ class MeetingRoomService:
 
     def _enrich_room_media(self, room: MeetingRoom) -> dict:
         d = _room_to_dict(room)
+        if room.service_center_id:
+            center = self.db.query(ServiceCenter).filter(
+                ServiceCenter.id == room.service_center_id,
+                ServiceCenter.deleted_flag == 0,
+            ).first()
+            if center:
+                d["serviceCenterName"] = center.center_name
+                d["regionCode"] = center.region_code
+                d["regionName"] = center.region_name
         images_db = self.repo.get_room_images(room.id)
         if images_db:
             d["images"] = [
@@ -632,13 +641,28 @@ class MeetingRoomService:
 
     def create_room(self, data: dict, operator: dict) -> dict:
         facilities_str = ",".join(data.get("facilities") or []) if data.get("facilities") else None
+        region_code = data["regionCode"]
+        region_name = data["regionName"]
+        service_center_id = data.get("serviceCenterId")
+        service_center_name = data.get("serviceCenterName")
+        if service_center_id is not None:
+            center = self.db.query(ServiceCenter).filter(
+                ServiceCenter.id == service_center_id,
+                ServiceCenter.deleted_flag == 0,
+                ServiceCenter.status == "ENABLED",
+            ).first()
+            if not center:
+                raise ParamException("所属中心不存在或已停用")
+            region_code = center.region_code
+            region_name = center.region_name
+            service_center_name = center.center_name
         room = self.repo.create_room(
             room_name=data["roomName"],
             room_type=data.get("roomType"),
-            region_code=data["regionCode"],
-            region_name=data["regionName"],
-            service_center_id=data.get("serviceCenterId"),
-            service_center_name=data.get("serviceCenterName"),
+            region_code=region_code,
+            region_name=region_name,
+            service_center_id=service_center_id,
+            service_center_name=service_center_name,
             address=data.get("address"),
             capacity=data["capacity"],
             facilities=facilities_str,
@@ -667,6 +691,8 @@ class MeetingRoomService:
         update_fields = {k: v for k, v in {
             "room_name": data.get("roomName"),
             "room_type": data.get("roomType"),
+            "region_code": data.get("regionCode"),
+            "region_name": data.get("regionName"),
             "address": data.get("address"),
             "capacity": data.get("capacity"),
             "facilities": ",".join(data["facilities"]) if data.get("facilities") else None,
@@ -674,6 +700,24 @@ class MeetingRoomService:
             "cover_attachment_id": data.get("coverAttachmentId"),
             "booking_notice": data.get("bookingNotice"),
         }.items() if v is not None}
+        if "serviceCenterId" in data:
+            service_center_id = data.get("serviceCenterId")
+            update_fields["service_center_id"] = service_center_id
+            if service_center_id is None:
+                update_fields["service_center_name"] = None
+            else:
+                center = self.db.query(ServiceCenter).filter(
+                    ServiceCenter.id == service_center_id,
+                    ServiceCenter.deleted_flag == 0,
+                    ServiceCenter.status == "ENABLED",
+                ).first()
+                if not center:
+                    raise ParamException("所属中心不存在或已停用")
+                update_fields["service_center_name"] = center.center_name
+                update_fields["region_code"] = center.region_code
+                update_fields["region_name"] = center.region_name
+        elif "serviceCenterName" in data:
+            update_fields["service_center_name"] = data.get("serviceCenterName")
         self.repo.update_room(room, **update_fields)
         self._sync_room_images(room_id, data)
         self.repo.add_operation_log(

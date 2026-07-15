@@ -2,7 +2,7 @@
   <div class="page home-page">
     <div class="home-hero">
       <div class="home-hero__badge">企业服务</div>
-      <h1 class="home-hero__title">企业服务中心</h1>
+      <h1 class="home-hero__title">威海市（环翠区）企业综合服务中心</h1>
       <p class="home-hero__ent">{{ user?.enterpriseName || '未获取企业信息' }}</p>
       <p class="home-hero__credit">统一社会信用代码：{{ user?.creditCode || '--' }}</p>
       <p class="home-hero__desc">

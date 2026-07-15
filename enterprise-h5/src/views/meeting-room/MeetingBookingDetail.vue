@@ -542,7 +542,15 @@ onMounted(fetchBooking)
   padding: 16px 16px 24px;
   height: 100%;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
+}
+.supplement-popup::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 .supplement-popup__title {
   font-size: 17px;

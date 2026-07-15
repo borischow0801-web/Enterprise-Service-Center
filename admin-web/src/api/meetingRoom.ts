@@ -10,8 +10,8 @@ export interface MeetingRoom {
   roomTypeName?: string
   regionCode: string
   regionName: string
-  serviceCenterId?: number
-  serviceCenterName?: string
+  serviceCenterId?: number | null
+  serviceCenterName?: string | null
   address?: string
   capacity: number
   facilities: string[]
@@ -29,6 +29,17 @@ export interface RoomImageItem {
   url: string
   isCover: number
   sortNo: number
+}
+
+export interface ServiceCenter {
+  id: number
+  centerName: string
+  regionCode: string
+  regionName: string
+  address?: string
+  contactName?: string
+  contactPhone?: string
+  status: string
 }
 
 export interface OpenRuleItem {
@@ -182,13 +193,17 @@ export function getMeetingRoomDetail(id: number): Promise<MeetingRoom> {
   return get<MeetingRoom>(`/api/admin/meeting-rooms/${id}`)
 }
 
+export function getServiceCenterList(params?: { regionCode?: string }): Promise<ServiceCenter[]> {
+  return get<ServiceCenter[]>('/api/admin/service-centers', params as Record<string, unknown>)
+}
+
 export function createMeetingRoom(data: {
   roomName: string
   roomType?: string
   regionCode: string
   regionName: string
-  serviceCenterId?: number
-  serviceCenterName?: string
+  serviceCenterId?: number | null
+  serviceCenterName?: string | null
   address?: string
   capacity: number
   facilities?: string[]
@@ -202,6 +217,10 @@ export function createMeetingRoom(data: {
 export function updateMeetingRoom(id: number, data: {
   roomName?: string
   roomType?: string
+  regionCode?: string
+  regionName?: string
+  serviceCenterId?: number | null
+  serviceCenterName?: string | null
   address?: string
   capacity?: number
   facilities?: string[]
