@@ -31,11 +31,11 @@
         />
         <van-field
           v-model.number="form.participantCount"
-          label="使用人数"
+          label="与会人数"
           type="number"
           placeholder="参会人数"
           required
-          :rules="[{required:true,message:'请输入使用人数'}]"
+          :rules="[{required:true,message:'请输入与会人数'}]"
         />
         <van-field
           v-model="form.contactName"
@@ -661,7 +661,7 @@ const submitting = ref(false)
 
 async function handleSubmit() {
   if (!form.meetingSubject.trim()) { showToast('请输入会议主题'); return }
-  if (!form.participantCount || form.participantCount < 1) { showToast('请输入使用人数'); return }
+  if (!form.participantCount || form.participantCount < 1) { showToast('请输入与会人数'); return }
   if (!form.contactName.trim()) { showToast('请输入联系人'); return }
   if (!form.contactPhone.trim()) { showToast('请输入联系电话'); return }
   if (!form.bookingDate) { showToast('请选择预约日期'); return }

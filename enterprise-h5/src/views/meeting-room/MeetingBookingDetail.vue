@@ -51,7 +51,7 @@
           <van-cell title="预约编号" :value="booking.bookingNo || booking.booking_no" value-class="mono" />
           <van-cell title="会议室" :value="booking.roomName || booking.room_name" />
           <van-cell title="会议主题" :value="booking.meetingSubject || booking.meeting_subject" />
-          <van-cell title="使用人数" :value="`${booking.participantCount || booking.participant_count} 人`" />
+          <van-cell title="与会人数" :value="`${booking.participantCount || booking.participant_count} 人`" />
           <van-cell title="联系人" :value="booking.contactName || booking.contact_name" />
           <van-cell title="联系电话" :value="booking.contactPhone || booking.contact_phone" />
           <van-cell title="开始时间" :value="formatDt(booking.startTime || booking.start_time)" />

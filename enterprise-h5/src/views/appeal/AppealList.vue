@@ -12,7 +12,7 @@
           <EmptyState
             v-if="!loading && list.length === 0 && finished"
             description="暂无诉求记录"
-            action-text="去提交诉求"
+            action-text="去登记诉求"
             @action="router.push('/appeals/create')"
           />
 
@@ -38,7 +38,7 @@
 
     <ActionBar>
       <van-button type="primary" round block icon="plus" @click="router.push('/appeals/create')">
-        提交诉求
+        登记诉求
       </van-button>
     </ActionBar>
   </div>

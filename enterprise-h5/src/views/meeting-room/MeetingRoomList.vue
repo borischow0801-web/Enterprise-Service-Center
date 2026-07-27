@@ -85,7 +85,6 @@
               </div>
               <div class="room-row">
                 <span class="room-capacity"><van-icon name="friends-o" size="12" /> 可容纳 {{ room.capacity }} 人</span>
-                <van-tag type="success" v-if="room.status === 'ENABLED'">可预约</van-tag>
               </div>
               <div v-if="room.facilities && room.facilities.length" class="room-facilities">
                 <van-tag
