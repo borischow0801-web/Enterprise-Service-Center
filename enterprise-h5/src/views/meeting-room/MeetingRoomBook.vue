@@ -186,7 +186,7 @@
               size="mini"
               plain
               @click="openTemplate(rule.templateDownloadUrl!)"
-            >下载模板</van-button>
+            >下载空表</van-button>
           </div>
           <div v-if="rule.description" class="tip-text">{{ rule.description }}</div>
           <div

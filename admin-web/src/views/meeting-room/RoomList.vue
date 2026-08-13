@@ -420,15 +420,30 @@
           <el-form-item label="说明">
             <el-input v-model="matForm.description" type="textarea" :rows="2" placeholder="材料说明（可选）" />
           </el-form-item>
-          <el-form-item label="模板附件ID">
-            <el-input-number
-              v-model="matForm.templateAttachmentId"
-              :min="0"
-              :controls="false"
-              placeholder="上传模板后填写附件ID"
-              style="width:100%"
-            />
-            <div class="form-tip">企业端材料清单将显示「下载模板」。可先上传附件后填写 ID。</div>
+          <el-form-item label="空表模板">
+            <div class="template-upload-wrap">
+              <div v-if="matForm.templateAttachmentId" class="template-file">
+                <span>{{ matForm.templateAttachmentName || `附件ID：${matForm.templateAttachmentId}` }}</span>
+                <el-button
+                  v-if="matForm.templateDownloadUrl"
+                  link
+                  type="primary"
+                  @click="openTemplateFile"
+                >下载</el-button>
+                <el-button link type="danger" @click="clearTemplateFile">清空</el-button>
+              </div>
+              <el-upload
+                :show-file-list="false"
+                :before-upload="handleTemplateUpload"
+                accept=".doc,.docx,.xls,.xlsx,.pdf,.jpg,.jpeg,.png"
+                :disabled="templateUploading"
+              >
+                <el-button size="small" :loading="templateUploading">
+                  {{ matForm.templateAttachmentId ? '重新上传空表' : '上传空表' }}
+                </el-button>
+              </el-upload>
+            </div>
+            <div class="form-tip">企业端材料清单将显示「下载空表」，支持 Word、Excel、PDF、图片等常见文件。</div>
           </el-form-item>
           <el-form-item v-if="currentMaterialRule" label="启用">
             <el-switch v-model="matForm.enabled" :active-value="1" :inactive-value="0" />
@@ -881,6 +896,7 @@ const matFilter = reactive({
 })
 const matFormVisible = ref(false)
 const matSubmitLoading = ref(false)
+const templateUploading = ref(false)
 const currentMaterialRule = ref<MaterialRule | null>(null)
 const matFormRef = ref<FormInstance>()
 const matForm = reactive({
@@ -894,6 +910,8 @@ const matForm = reactive({
   requiredFlag: 1,
   sortNo: 0,
   templateAttachmentId: undefined as number | undefined,
+  templateAttachmentName: '',
+  templateDownloadUrl: '',
   description: '',
   enabled: 1,
 })
@@ -935,6 +953,8 @@ function openMaterialRuleForm(rule: MaterialRule | null) {
       requiredFlag: rule.requiredFlag,
       sortNo: rule.sortNo ?? 0,
       templateAttachmentId: rule.templateAttachmentId,
+      templateAttachmentName: rule.templateAttachmentName || '',
+      templateDownloadUrl: rule.templateDownloadUrl || '',
       description: rule.description || '',
       enabled: rule.enabled,
     })
@@ -950,6 +970,8 @@ function openMaterialRuleForm(rule: MaterialRule | null) {
       requiredFlag: 1,
       sortNo: 0,
       templateAttachmentId: undefined,
+      templateAttachmentName: '',
+      templateDownloadUrl: '',
       description: '',
       enabled: 1,
     })
@@ -961,6 +983,35 @@ function openMaterialRuleForm(rule: MaterialRule | null) {
   }
   matFormRef.value?.clearValidate()
   matFormVisible.value = true
+}
+
+async function handleTemplateUpload(file: UploadRawFile): Promise<false> {
+  const err = validateFileSize(file)
+  if (err) {
+    ElMessage.warning(err)
+    return false
+  }
+  templateUploading.value = true
+  try {
+    const result = await uploadAttachment(file)
+    matForm.templateAttachmentId = result.id
+    matForm.templateAttachmentName = result.originalName
+    matForm.templateDownloadUrl = result.downloadUrl || `/api/common/attachments/${result.id}/download`
+    ElMessage.success('空表上传成功')
+  } finally {
+    templateUploading.value = false
+  }
+  return false
+}
+
+function clearTemplateFile() {
+  matForm.templateAttachmentId = undefined
+  matForm.templateAttachmentName = ''
+  matForm.templateDownloadUrl = ''
+}
+
+function openTemplateFile() {
+  if (matForm.templateDownloadUrl) window.open(matForm.templateDownloadUrl, '_blank')
 }
 
 async function handleMatSubmit() {
@@ -976,7 +1027,7 @@ async function handleMatSubmit() {
         materialName: matForm.materialName,
         requiredFlag: matForm.requiredFlag,
         sortNo: matForm.sortNo,
-        templateAttachmentId: matForm.templateAttachmentId,
+        templateAttachmentId: matForm.templateAttachmentId ?? null,
         description: matForm.description || undefined,
         enabled: matForm.enabled,
       })
@@ -1042,6 +1093,28 @@ async function handleDeleteMaterialRule(id: number) {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+.template-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.template-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fafafa;
+}
+.template-file span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .room-image-item {
   width: 120px;

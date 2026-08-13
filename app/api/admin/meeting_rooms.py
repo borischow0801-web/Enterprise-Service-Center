@@ -95,7 +95,7 @@ def create_material_rule(body: MaterialRuleCreateRequest, current: CurrentAdmin,
 @router.put("/material-rules/{rule_id}", summary="修改材料规则")
 def update_material_rule(rule_id: int, body: MaterialRuleUpdateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
-    result = svc.update_material_rule(rule_id, body.model_dump(exclude_none=True), _op(current))
+    result = svc.update_material_rule(rule_id, body.model_dump(exclude_unset=True), _op(current))
     return success(data=result)
 
 

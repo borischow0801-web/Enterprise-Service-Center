@@ -38,7 +38,15 @@ def _parse_datetime(val) -> datetime:
     raise ParamException("时间格式无效，请使用 YYYY-MM-DD HH:mm:ss")
 
 
-def _material_rule_to_dict(r) -> dict:
+def _material_rule_to_dict(r, db: Optional[Session] = None) -> dict:
+    template_name = None
+    if db is not None and r.template_attachment_id:
+        att = db.query(SysAttachment).filter(
+            SysAttachment.id == r.template_attachment_id,
+            SysAttachment.deleted_flag == 0,
+        ).first()
+        if att:
+            template_name = att.original_name
     return {
         "id": r.id,
         "roomId": r.room_id,
@@ -51,6 +59,8 @@ def _material_rule_to_dict(r) -> dict:
         "materialCode": r.material_code,
         "requiredFlag": r.required_flag,
         "templateAttachmentId": r.template_attachment_id,
+        "templateAttachmentName": template_name,
+        "templateDownloadUrl": _attachment_url(r.template_attachment_id) if r.template_attachment_id else None,
         "description": r.description,
         "enabled": r.enabled,
         "sortNo": r.sort_no if hasattr(r, 'sort_no') else 0,
@@ -402,14 +412,7 @@ class MeetingRoomService:
         if not room:
             return []
         rules = self._get_booking_material_rules(room, enterprise_type)
-        return [
-            {"id": r.id, "materialName": r.material_name, "materialCode": r.material_code,
-             "requiredFlag": r.required_flag, "description": r.description,
-             "templateAttachmentId": r.template_attachment_id,
-             "templateDownloadUrl": _attachment_url(r.template_attachment_id) if r.template_attachment_id else None,
-             "sortNo": r.sort_no, "enterpriseType": r.enterprise_type}
-            for r in rules
-        ]
+        return [_material_rule_to_dict(r, self.db) for r in rules]
 
     # ── Enterprise: Booking ───────────────────────────────────────────────────
 
@@ -834,7 +837,7 @@ class MeetingRoomService:
             region_code=region_code, service_center_id=service_center_id,
             room_id=room_id, enterprise_type=enterprise_type, enabled=enabled,
         )
-        return [_material_rule_to_dict(r) for r in rules]
+        return [_material_rule_to_dict(r, self.db) for r in rules]
 
     def create_material_rule(self, data: dict, operator: dict) -> dict:
         rule = self.repo.create_material_rule(
@@ -860,7 +863,7 @@ class MeetingRoomService:
         )
         self.db.commit()
         self.db.refresh(rule)
-        return _material_rule_to_dict(rule)
+        return _material_rule_to_dict(rule, self.db)
 
     def update_material_rule(self, rule_id: int, data: dict, operator: dict) -> dict:
         rule = self.repo.get_material_rule_by_id(rule_id)
@@ -873,7 +876,12 @@ class MeetingRoomService:
             "template_attachment_id": "templateAttachmentId",
             "description": "description", "enabled": "enabled", "sort_no": "sortNo",
         }
-        update_fields = {db_k: data[api_k] for db_k, api_k in field_map.items() if api_k in data and data[api_k] is not None}
+        nullable_fields = {"templateAttachmentId", "serviceCenterId", "serviceCenterName", "description"}
+        update_fields = {
+            db_k: data[api_k]
+            for db_k, api_k in field_map.items()
+            if api_k in data and (data[api_k] is not None or api_k in nullable_fields)
+        }
         self.repo.update_material_rule(rule, **update_fields)
         self.repo.add_operation_log(
             operator_type=operator.get("operator_type", "USER"),
@@ -884,7 +892,7 @@ class MeetingRoomService:
         )
         self.db.commit()
         self.db.refresh(rule)
-        return _material_rule_to_dict(rule)
+        return _material_rule_to_dict(rule, self.db)
 
     def delete_material_rule(self, rule_id: int, operator: dict) -> None:
         rule = self.repo.get_material_rule_by_id(rule_id)

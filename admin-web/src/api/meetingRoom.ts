@@ -60,7 +60,9 @@ export interface MaterialRule {
   materialName: string
   materialCode: string
   requiredFlag: number
-  templateAttachmentId?: number
+  templateAttachmentId?: number | null
+  templateAttachmentName?: string
+  templateDownloadUrl?: string
   description?: string
   sortNo?: number
   enabled: number
@@ -290,7 +292,7 @@ export function createMaterialRule(data: {
   materialName: string
   materialCode: string
   requiredFlag: number
-  templateAttachmentId?: number
+  templateAttachmentId?: number | null
   description?: string
   sortNo?: number
 }): Promise<MaterialRule> {
@@ -304,7 +306,7 @@ export function updateMaterialRule(id: number, data: {
   serviceCenterName?: string
   materialName?: string
   requiredFlag?: number
-  templateAttachmentId?: number
+  templateAttachmentId?: number | null
   description?: string
   sortNo?: number
   enabled?: number
