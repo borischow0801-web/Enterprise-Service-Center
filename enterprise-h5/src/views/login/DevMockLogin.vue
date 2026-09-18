@@ -9,7 +9,7 @@
     <van-notice-bar
       wrapable
       :scrollable="false"
-      text="当前为开发调试登录页，正式环境将对接省级统一身份认证系统。"
+      text="仅开发/测试环境可用；生产环境该接口会被后端拒绝。正式登录请使用登录页的账号密码登录或注册。"
       background="#fff7e6"
       color="#ed6a0c"
       class="login-notice"
@@ -26,10 +26,14 @@
 
       <div class="login-btn-wrap">
         <van-button type="primary" block @click="handleLogin">
-          模拟登录
+          调试登录
         </van-button>
       </div>
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+
+      <div class="login-links">
+        <span class="link" @click="router.push('/login')">返回正式登录页</span>
+      </div>
     </div>
   </div>
 </template>
@@ -66,14 +70,7 @@ function parseToken(res: unknown): string {
   const r = res as Record<string, unknown>
   const data = r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : null
 
-  const candidates = [
-    r.token,
-    r.accessToken,
-    r.access_token,
-    data?.token,
-    data?.accessToken,
-    data?.access_token,
-  ]
+  const candidates = [r.token, r.accessToken, r.access_token, data?.token, data?.accessToken, data?.access_token]
   for (const c of candidates) {
     if (typeof c === 'string' && c) return c
   }
@@ -81,48 +78,32 @@ function parseToken(res: unknown): string {
 }
 
 async function handleLogin() {
-  console.log('点击了模拟登录按钮')
-  console.log('开始企业端 mock 登录')
-  console.log('当前表单参数', { ...form.value })
   errorMsg.value = ''
 
   try {
     const res = await enterpriseMockLogin(form.value)
-    console.log('登录接口返回值', res)
-
     const token = parseToken(res)
     if (!token) {
       showToast('登录接口未返回 token')
-      console.log('登录接口未返回 token，完整返回值', res)
       errorMsg.value = '登录接口未返回 token'
       return
     }
 
-    localStorage.setItem('enterprise_token', token)
     authStore.applyToken(token)
 
     try {
       const me = await getEnterpriseMe()
-      console.log('GET /api/enterprise/me 成功', me)
-      localStorage.setItem('enterprise_user', JSON.stringify(me))
       authStore.applyUser(me)
       showToast({ type: 'success', message: '登录成功' })
       navigateAfterLogin()
     } catch (meErr: unknown) {
-      const ax = meErr as { message?: string; response?: { status?: number; data?: unknown } }
-      console.error('GET /api/enterprise/me 失败', {
-        status: ax.response?.status,
-        body: ax.response?.data,
-        error: meErr,
-      })
+      const ax = meErr as { message?: string }
       errorMsg.value = `Token 已保存，获取企业信息失败：${ax.message || '未知错误'}`
-      showToast({ type: 'success', message: '登录成功' })
       navigateAfterLogin()
     }
   } catch (err: unknown) {
-    const ax = err as { message?: string; response?: { status?: number; data?: unknown } }
+    const ax = err as { message?: string }
     errorMsg.value = ax.message || '登录失败'
-    console.error('mock 登录失败', { error: err, body: ax.response?.data })
   }
 }
 </script>
@@ -183,5 +164,14 @@ async function handleLogin() {
   font-size: 13px;
   margin-top: 12px;
   padding: 0 16px;
+}
+.login-links {
+  text-align: center;
+  margin-top: 16px;
+}
+.link {
+  color: #fff;
+  font-size: 13px;
+  text-decoration: underline;
 }
 </style>

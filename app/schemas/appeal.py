@@ -92,6 +92,10 @@ class AppealFollowupRequest(BaseModel):
     followupResult: Optional[str] = None
 
 
+class AppealCompleteRequest(BaseModel):
+    remark: Optional[str] = None
+
+
 # ── Query params ──────────────────────────────────────────────────────────────
 
 class EnterpriseAppealListQuery(BaseModel):

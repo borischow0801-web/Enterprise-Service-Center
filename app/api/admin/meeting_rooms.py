@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
+from app.constants.permission import Permission
+from app.core.permission import require_permissions
 from app.core.response import success, paginated
 from app.schemas.meeting_room import (
     RoomCreateRequest, RoomUpdateRequest, RoomStatusRequest,
@@ -21,6 +23,9 @@ def _op(current: dict) -> dict:
         "operator_name": current.get("real_name", ""),
         "department_id": current.get("department_id"),
         "department_name": current.get("department_name"),
+        "data_scope": current.get("data_scope"),
+        "region_code": current.get("region_code"),
+        "role_codes": current.get("role_codes"),
     }
 
 
@@ -28,7 +33,7 @@ def _op(current: dict) -> dict:
 
 @router.get("", summary="会议室管理列表（管理端）")
 def list_rooms(
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.MEETING_ROOM_VIEW)),
     db: Session = Depends(get_db),
     regionCode: Optional[str] = Query(None),
     serviceCenterId: Optional[int] = Query(None),
@@ -48,21 +53,21 @@ def list_rooms(
 
 
 @router.post("", summary="新增会议室")
-def create_room(body: RoomCreateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def create_room(body: RoomCreateRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.create_room(body.model_dump(), _op(current))
     return success(data=result, message="会议室创建成功")
 
 
 @router.post("/special-dates", summary="配置特殊日期")
-def create_special_date(body: SpecialDateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def create_special_date(body: SpecialDateRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.create_special_date(body.model_dump(), _op(current))
     return success(data=result)
 
 
 @router.post("/occupies", summary="手工占用会议室")
-def create_occupy(body: OccupyRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def create_occupy(body: OccupyRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.create_occupy(body.model_dump(), _op(current))
     return success(data=result)
@@ -70,7 +75,7 @@ def create_occupy(body: OccupyRequest, current: CurrentAdmin, db: Session = Depe
 
 @router.get("/material-rules", summary="材料规则列表")
 def list_material_rules(
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.MEETING_ROOM_VIEW)),
     db: Session = Depends(get_db),
     regionCode: Optional[str] = Query(None),
     serviceCenterId: Optional[int] = Query(None),
@@ -86,21 +91,21 @@ def list_material_rules(
 
 
 @router.post("/material-rules", summary="新增材料规则")
-def create_material_rule(body: MaterialRuleCreateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def create_material_rule(body: MaterialRuleCreateRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.create_material_rule(body.model_dump(), _op(current))
     return success(data=result)
 
 
 @router.put("/material-rules/{rule_id}", summary="修改材料规则")
-def update_material_rule(rule_id: int, body: MaterialRuleUpdateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def update_material_rule(rule_id: int, body: MaterialRuleUpdateRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.update_material_rule(rule_id, body.model_dump(exclude_unset=True), _op(current))
     return success(data=result)
 
 
 @router.delete("/material-rules/{rule_id}", summary="删除材料规则")
-def delete_material_rule(rule_id: int, current: CurrentAdmin, db: Session = Depends(get_db)):
+def delete_material_rule(rule_id: int, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     svc.delete_material_rule(rule_id, _op(current))
     return success(message="删除成功")
@@ -109,27 +114,27 @@ def delete_material_rule(rule_id: int, current: CurrentAdmin, db: Session = Depe
 # ── 动态路由（/{room_id} 必须在所有静态路由之后）────────────────────────────
 
 @router.get("/{room_id}", summary="会议室详情（管理端）")
-def get_room_detail(room_id: int, current: CurrentAdmin, db: Session = Depends(get_db)):
+def get_room_detail(room_id: int, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_VIEW)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     return success(data=svc.get_room_detail_enterprise(room_id))
 
 
 @router.put("/{room_id}", summary="修改会议室")
-def update_room(room_id: int, body: RoomUpdateRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def update_room(room_id: int, body: RoomUpdateRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.update_room(room_id, body.model_dump(exclude_unset=True), _op(current))
     return success(data=result, message="修改成功")
 
 
 @router.patch("/{room_id}/status", summary="启用/停用会议室")
-def set_room_status(room_id: int, body: RoomStatusRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def set_room_status(room_id: int, body: RoomStatusRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.set_room_status(room_id, body.status, _op(current))
     return success(data=result)
 
 
 @router.get("/{room_id}/open-rules", summary="获取开放规则")
-def get_open_rules(room_id: int, current: CurrentAdmin, db: Session = Depends(get_db)):
+def get_open_rules(room_id: int, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_VIEW)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     rules = svc.repo.get_open_rules(room_id)
     return success(data={
@@ -147,7 +152,7 @@ def get_open_rules(room_id: int, current: CurrentAdmin, db: Session = Depends(ge
 
 
 @router.put("/{room_id}/open-rules", summary="配置开放规则")
-def set_open_rules(room_id: int, body: OpenRulesRequest, current: CurrentAdmin, db: Session = Depends(get_db)):
+def set_open_rules(room_id: int, body: OpenRulesRequest, current: dict = Depends(require_permissions(Permission.MEETING_ROOM_MANAGE)), db: Session = Depends(get_db)):
     svc = MeetingRoomService(db)
     result = svc.set_open_rules(room_id, [r.model_dump() for r in body.rules], _op(current))
     return success(data=result)

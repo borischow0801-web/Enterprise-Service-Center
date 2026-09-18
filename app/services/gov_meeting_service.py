@@ -9,6 +9,7 @@ from app.constants.gov_meeting import (
     GovMeetingStatus, GovMeetingAction, ACTION_NAMES, ALLOWED_STATUS_FOR_ACTION,
 )
 from app.core.exceptions import StatusNotAllowedException, NotFoundException, ParamException
+from app.core.permission import DataPermissionService
 from app.repositories.gov_meeting_repo import GovMeetingRepository, generate_apply_no
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.models.gov_meeting import GovMeetingApply
@@ -374,16 +375,21 @@ class GovMeetingService:
         )
         return total, [_apply_to_dict(r) for r in records]
 
-    def get_apply_detail_admin(self, apply_id: int) -> dict:
+    def get_apply_detail_admin(self, apply_id: int, op: dict) -> dict:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         return self._build_detail(apply)
+
+    def _assert_scope(self, apply: GovMeetingApply, op: dict) -> None:
+        DataPermissionService.assert_can_access(op, region_code=apply.region_code)
 
     def audit_apply(self, apply_id: int, data: dict, op: dict) -> dict:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
 
         audit_type = data.get("auditType")
         if audit_type == "ACCEPT":
@@ -459,6 +465,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.ARRANGE)
 
         arr = self.repo.create_arrangement(
@@ -503,6 +510,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.UPDATE_ARRANGEMENT)
 
         arr = self.repo.get_arrangement_by_id(arr_id)
@@ -545,6 +553,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.CONFIRM)
 
         arr = self.repo.get_arrangement_by_apply(apply_id)
@@ -572,6 +581,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.COMPLETE)
 
         before = apply.status
@@ -598,6 +608,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.ADD_RECORD)
 
         rec = self.repo.create_record(
@@ -634,6 +645,7 @@ class GovMeetingService:
         apply = self.repo.get_apply_by_id(apply_id)
         if apply is None:
             raise NotFoundException("申请不存在")
+        self._assert_scope(apply, op)
         _check_status(apply, GovMeetingAction.FINISH)
 
         send_evaluation = data.get("sendEvaluation", 1)

@@ -1,5 +1,35 @@
 import { get, post } from './request'
 
+export interface EnterpriseRegisterParams {
+  enterpriseName: string
+  creditCode: string
+  contactName: string
+  contactMobile: string
+  password: string
+  confirmPassword: string
+}
+
+export interface EnterpriseLoginParams {
+  creditCode: string
+  password: string
+}
+
+export interface TokenResponseData {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+}
+
+/** 企业自主注册（LOCAL）。成功后直接返回可用的 accessToken，无需再次登录。 */
+export function registerEnterprise(params: EnterpriseRegisterParams): Promise<TokenResponseData> {
+  return post<TokenResponseData>('/api/auth/enterprise/register', params)
+}
+
+/** 企业密码登录（统一社会信用代码 + 密码）。 */
+export function loginEnterprise(params: EnterpriseLoginParams): Promise<TokenResponseData> {
+  return post<TokenResponseData>('/api/auth/enterprise/login', params)
+}
+
 export interface EnterpriseMockLoginParams {
   enterpriseName: string
   creditCode: string
@@ -52,9 +82,13 @@ export function resolveEnterpriseUser(data: LoginResponseData): EnterpriseUser |
  * 5. 使用 resolveRedirectPath(redirect) 跳回原始菜单页，不要强制 /home。
  */
 export async function handleProvincialAuthCallback(_params: { authCode: string }): Promise<never> {
-  throw new Error('省级统一身份认证尚未对接，请使用开发调试登录页')
+  throw new Error('省级统一身份认证尚未对接')
 }
 
+/**
+ * 仅供开发/测试环境使用（对应后端 settings.app_env=="production" 时会返回 40401）。
+ * 正式登录请使用 loginEnterprise / registerEnterprise。
+ */
 export function enterpriseMockLogin(params: EnterpriseMockLoginParams): Promise<LoginResponseData> {
   return post<LoginResponseData>('/api/auth/enterprise/mock-login', params)
 }

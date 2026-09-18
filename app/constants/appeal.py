@@ -69,4 +69,5 @@ ALLOWED_STATUS_FOR_ACTION = {
     AppealAction.REVIEW_PASS: [AppealStatus.CENTER_REVIEWING],
     AppealAction.REVIEW_REJECT: [AppealStatus.CENTER_REVIEWING],
     AppealAction.EVALUATE: [AppealStatus.REPLIED, AppealStatus.PENDING_EVALUATION],
+    AppealAction.COMPLETE: [AppealStatus.EVALUATED],
 }

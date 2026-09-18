@@ -10,7 +10,7 @@
         </el-tag>
       </div>
       <!-- 操作按钮区 -->
-      <div class="header-actions" v-if="detail">
+      <div class="header-actions" v-if="detail" v-permission="Permission.GOV_MEETING_HANDLE">
         <template v-if="detail.status === 'PENDING_AUDIT'">
           <el-button type="success" @click="openAcceptDialog">受理通过</el-button>
           <el-button type="warning" @click="openReturnDialog">退回补正</el-button>
@@ -455,6 +455,8 @@ import type { GovMeetingDetail, GovMeetingParticipant } from '@/api/govMeeting'
 import { statusText, statusTagType, formatDate, formatDateOnly } from '@/utils/format'
 import { formatSatisfaction, formatResolvedFlag } from '@/utils/appealConsts'
 import { getDictionary } from '@/api/common'
+import { openSecureAttachment } from '@/utils/attachment'
+import { Permission } from '@/constants/permission'
 
 const route = useRoute()
 const router = useRouter()
@@ -516,8 +518,12 @@ function formatSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`
 }
 
-function downloadAtt(id: number) {
-  window.open(`/api/common/attachments/${id}/download`, '_blank')
+async function downloadAtt(id: number) {
+  try {
+    await openSecureAttachment(`/api/common/attachments/${id}/download`)
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || '附件下载失败')
+  }
 }
 
 // ── 受理通过 ────────────────────────────────────────────────────────────────

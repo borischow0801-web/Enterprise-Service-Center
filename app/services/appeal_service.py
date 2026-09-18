@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.appeal import AppealStatus, AppealAction, HandleMode, ACTION_NAMES, ALLOWED_STATUS_FOR_ACTION
 from app.core.exceptions import StatusNotAllowedException, NotFoundException, AppException, ErrorCode
+from app.core.permission import DataPermissionService
 from app.repositories.appeal_repo import AppealRepository, generate_appeal_no
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.models.appeal import AppealMain
@@ -275,16 +276,23 @@ class AppealService:
         )
         return total, [_appeal_to_dict(r) for r in records]
 
-    def get_appeal_detail_for_admin(self, appeal_id: int) -> dict:
+    def get_appeal_detail_for_admin(self, appeal_id: int, operator: dict) -> dict:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         return self._build_detail(appeal)
+
+    def _assert_scope(self, appeal: AppealMain, operator: dict) -> None:
+        assignments = self.repo.get_assignments(appeal.id)
+        dept_ids = {appeal.responsible_dept_id} | {a.assigned_dept_id for a in assignments}
+        DataPermissionService.assert_can_access(operator, region_code=appeal.region_code, dept_ids=dept_ids)
 
     def accept_appeal(self, appeal_id: int, data: dict, operator: dict) -> dict:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.ACCEPT)
 
         old_status = appeal.status
@@ -306,6 +314,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.RETURN_SUPPLEMENT)
 
         old_status = appeal.status
@@ -319,6 +328,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.REJECT)
 
         old_status = appeal.status
@@ -335,6 +345,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.CENTER_HANDLE)
 
         old_status = appeal.status
@@ -357,6 +368,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.ASSIGN_DEPT)
 
         old_status = appeal.status
@@ -386,6 +398,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.DEPT_REPLY)
 
         old_status = appeal.status
@@ -410,6 +423,7 @@ class AppealService:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
         _check_status(appeal, AppealAction.REVIEW_PASS)
 
         old_status = appeal.status
@@ -426,10 +440,26 @@ class AppealService:
         self.db.refresh(appeal)
         return _appeal_to_dict(appeal)
 
+    def complete_appeal(self, appeal_id: int, data: dict, operator: dict) -> dict:
+        appeal = self.repo.get_by_id(appeal_id)
+        if appeal is None:
+            raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
+        _check_status(appeal, AppealAction.COMPLETE)
+
+        old_status = appeal.status
+        now = datetime.utcnow()
+        self.repo.update_appeal(appeal, status=AppealStatus.COMPLETED, completed_at=now)
+        self._write_audit_trail(appeal, AppealAction.COMPLETE, old_status, AppealStatus.COMPLETED, operator, data.get("remark"))
+        self.db.commit()
+        self.db.refresh(appeal)
+        return _appeal_to_dict(appeal)
+
     def add_followup(self, appeal_id: int, data: dict, operator: dict) -> dict:
         appeal = self.repo.get_by_id(appeal_id)
         if appeal is None:
             raise NotFoundException("诉求不存在")
+        self._assert_scope(appeal, operator)
 
         now = datetime.utcnow()
         self.repo.create_followup(

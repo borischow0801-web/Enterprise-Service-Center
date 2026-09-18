@@ -95,3 +95,14 @@ export function evaluateAppeal(id: number, data: {
 }): Promise<unknown> {
   return post(`/api/enterprise/appeals/${id}/evaluation`, data)
 }
+
+/**
+ * 企业补充材料（诉求处于"退回补充"状态时使用）。
+ * 后端：POST /api/enterprise/appeals/{id}/supplement
+ */
+export function supplementAppeal(id: number, data: {
+  content: string
+  attachmentIds?: number[]
+}): Promise<AppealItem> {
+  return post<AppealItem>(`/api/enterprise/appeals/${id}/supplement`, data)
+}

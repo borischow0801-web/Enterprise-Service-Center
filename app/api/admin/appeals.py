@@ -4,6 +4,8 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
+from app.constants.permission import Permission
+from app.core.permission import require_permissions
 from app.core.response import success, paginated
 from app.schemas.appeal import (
     AppealAcceptRequest,
@@ -14,6 +16,7 @@ from app.schemas.appeal import (
     AppealDeptReplyRequest,
     AppealReviewReplyRequest,
     AppealFollowupRequest,
+    AppealCompleteRequest,
 )
 from app.services.appeal_service import AppealService
 
@@ -29,12 +32,16 @@ def _build_admin_operator(current: dict) -> dict:
         "department_name": current.get("department_name"),
         "user_id_str": str(current.get("user_id", "")),
         "real_name": current.get("real_name", ""),
+        # 供 DataPermissionService 做数据权限校验用（见 A2 整改）
+        "data_scope": current.get("data_scope"),
+        "region_code": current.get("region_code"),
+        "role_codes": current.get("role_codes"),
     }
 
 
 @router.get("", summary="诉求列表（管理端）")
 def list_appeals(
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_VIEW)),
     db: Session = Depends(get_db),
     enterpriseName: Optional[str] = Query(None),
     creditCode: Optional[str] = Query(None),
@@ -72,11 +79,11 @@ def list_appeals(
 @router.get("/{appeal_id}", summary="诉求详情（管理端）")
 def get_appeal_detail(
     appeal_id: int,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_VIEW)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
-    result = svc.get_appeal_detail_for_admin(appeal_id)
+    result = svc.get_appeal_detail_for_admin(appeal_id, _build_admin_operator(current))
     return success(data=result)
 
 
@@ -84,7 +91,7 @@ def get_appeal_detail(
 def accept_appeal(
     appeal_id: int,
     body: AppealAcceptRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -97,7 +104,7 @@ def accept_appeal(
 def return_supplement(
     appeal_id: int,
     body: AppealReturnSupplementRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -110,7 +117,7 @@ def return_supplement(
 def reject_appeal(
     appeal_id: int,
     body: AppealRejectRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -123,7 +130,7 @@ def reject_appeal(
 def center_handle(
     appeal_id: int,
     body: AppealCenterHandleRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -136,7 +143,7 @@ def center_handle(
 def assign_dept(
     appeal_id: int,
     body: AppealAssignRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -149,7 +156,7 @@ def assign_dept(
 def dept_reply(
     appeal_id: int,
     body: AppealDeptReplyRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE, Permission.APPEAL_DEPT_REPLY)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -162,7 +169,7 @@ def dept_reply(
 def review_reply(
     appeal_id: int,
     body: AppealReviewReplyRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
@@ -175,10 +182,23 @@ def review_reply(
 def add_followup(
     appeal_id: int,
     body: AppealFollowupRequest,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
     db: Session = Depends(get_db),
 ):
     svc = AppealService(db)
     operator = _build_admin_operator(current)
     result = svc.add_followup(appeal_id, body.model_dump(), operator)
     return success(data=result, message="回访记录已保存")
+
+
+@router.post("/{appeal_id}/complete", summary="办结")
+def complete_appeal(
+    appeal_id: int,
+    body: AppealCompleteRequest,
+    current: dict = Depends(require_permissions(Permission.APPEAL_HANDLE)),
+    db: Session = Depends(get_db),
+):
+    svc = AppealService(db)
+    operator = _build_admin_operator(current)
+    result = svc.complete_appeal(appeal_id, body.model_dump(), operator)
+    return success(data=result, message="已办结")

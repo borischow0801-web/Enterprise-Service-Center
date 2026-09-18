@@ -241,7 +241,7 @@ import {
 } from '@/api/meetingRoom'
 import type { MeetingBooking, BookingAuditRecord, MaterialRule } from '@/api/meetingRoom'
 import { uploadAttachment } from '@/api/common'
-import { apiAssetUrl } from '@/utils/api'
+import { openSecureAttachment } from '@/utils/attachment'
 import { validateFileSize } from '@/constants/upload'
 import { statusLabel, statusBannerGradient, bookingStatusHint } from '@/utils/status'
 import { formatDate, parseSupportItems, getField } from '@/utils/format'
@@ -323,8 +323,12 @@ const supplementOpinionText = computed(() => {
 
 const formatDt = formatDate
 
-function openAttachment(id: number) {
-  window.open(apiAssetUrl(`/api/common/attachments/${id}/download`), '_blank')
+async function openAttachment(id: number) {
+  try {
+    await openSecureAttachment(`/api/common/attachments/${id}/download`)
+  } catch (e: unknown) {
+    showToast((e as Error)?.message || '附件下载失败')
+  }
 }
 
 async function fetchBooking() {

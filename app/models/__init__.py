@@ -1,5 +1,10 @@
 from app.core.database import Base  # noqa: F401
-from app.models.enterprise import Enterprise  # noqa: F401
+from app.models.enterprise import (  # noqa: F401
+    Enterprise,
+    EnterpriseIdentity,
+    EnterpriseIdentityType,
+    EnterpriseIdentityStatus,
+)
 from app.models.system import (  # noqa: F401
     ServiceCenter,
     SysUserSnapshot,
@@ -8,6 +13,7 @@ from app.models.system import (  # noqa: F401
     SysMessageRecord,
     SysEvaluation,
     SysOperationLog,
+    SysDailySerial,
 )
 from app.models.appeal import (  # noqa: F401
     AppealMain,

@@ -14,6 +14,7 @@ from app.core.exceptions import (
     StatusNotAllowedException, NotFoundException, AppException,
     MeetingRoomConflictException, EnterpriseRestrictedException, ParamException, ErrorCode,
 )
+from app.core.permission import DataPermissionService
 from app.repositories.meeting_room_repo import MeetingRoomRepository, generate_booking_no
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.models.meeting_room import MeetingRoom, MeetingRoomBooking
@@ -256,6 +257,12 @@ class MeetingRoomService:
             operation_type=action, business_id=booking_id,
             operation_content=opinion, before_status=before, after_status=after,
         )
+
+    def _assert_room_scope(self, room: MeetingRoom, operator: dict) -> None:
+        DataPermissionService.assert_can_access(operator, region_code=room.region_code)
+
+    def _assert_booking_scope(self, booking: MeetingRoomBooking, operator: dict) -> None:
+        DataPermissionService.assert_can_access(operator, region_code=booking.region_code)
 
     def _merge_material_rules_tiered(self, tiers: list[tuple[int, list]]) -> list:
         """多级匹配合并：优先级高的覆盖低的；同优先级下主体专属覆盖通用。"""
@@ -659,6 +666,7 @@ class MeetingRoomService:
             region_code = center.region_code
             region_name = center.region_name
             service_center_name = center.center_name
+        DataPermissionService.assert_can_access(operator, region_code=region_code)
         room = self.repo.create_room(
             room_name=data["roomName"],
             room_type=data.get("roomType"),
@@ -691,6 +699,7 @@ class MeetingRoomService:
         room = self.repo.get_room_by_id(room_id)
         if not room:
             raise NotFoundException("会议室不存在")
+        self._assert_room_scope(room, operator)
         update_fields = {k: v for k, v in {
             "room_name": data.get("roomName"),
             "room_type": data.get("roomType"),
@@ -741,6 +750,7 @@ class MeetingRoomService:
         room = self.repo.get_room_by_id(room_id)
         if not room:
             raise NotFoundException("会议室不存在")
+        self._assert_room_scope(room, operator)
         self.repo.update_room(room, status=status)
         self.repo.add_operation_log(
             operator_type=operator.get("operator_type", "USER"),
@@ -758,6 +768,7 @@ class MeetingRoomService:
         room = self.repo.get_room_by_id(room_id)
         if not room:
             raise NotFoundException("会议室不存在")
+        self._assert_room_scope(room, operator)
         self.repo.replace_open_rules(room_id, rules)
         self.repo.add_operation_log(
             operator_type=operator.get("operator_type", "USER"),
@@ -772,6 +783,7 @@ class MeetingRoomService:
 
     def create_special_date(self, data: dict, operator: dict) -> dict:
         from datetime import date as date_type
+        DataPermissionService.assert_can_access(operator, region_code=data.get("regionCode"))
         special_date = data["specialDate"]
         if isinstance(special_date, str):
             special_date = date_type.fromisoformat(special_date)
@@ -792,6 +804,7 @@ class MeetingRoomService:
         room = self.repo.get_room_by_id(data["roomId"])
         if not room:
             raise NotFoundException("会议室不存在")
+        self._assert_room_scope(room, operator)
         start = data["startTime"]
         end = data["endTime"]
         if isinstance(start, str):
@@ -928,10 +941,11 @@ class MeetingRoomService:
         )
         return total, [_booking_to_dict(b) for b in records]
 
-    def get_booking_detail_admin(self, booking_id: int) -> dict:
+    def get_booking_detail_admin(self, booking_id: int, operator: dict) -> dict:
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
+        self._assert_booking_scope(booking, operator)
         d = self._build_booking_detail(booking)
         enterprise = self.ent_repo.get_by_id(booking.enterprise_id)
         if enterprise:
@@ -956,12 +970,36 @@ class MeetingRoomService:
         return d
 
     def approve_booking(self, booking_id: int, data: dict, operator: dict) -> dict:
+        # 并发安全审批：把这一次审批所在的整个事务切到 READ COMMITTED——
+        # 只对这一个事务生效（通过 SQLAlchemy execution_options 实现，连接
+        # 归还连接池时会自动恢复默认隔离级别，不影响其他请求，不是修改全局
+        # 隔离级别）。原因：MySQL 默认 REPEATABLE READ 下，一个事务的一致性
+        # 快照在本事务第一条语句时就已固定，即使后面用 SELECT ... FOR UPDATE
+        # 等到了锁，对预约冲突的按时间段范围查询仍可能读到锁等待期间别的
+        # 事务刚提交的旧快照之外的数据不可见；而如果为了拿到"最新数据"对
+        # 这种范围查询加 FOR UPDATE，又会在 REPEATABLE READ 下触发 InnoDB
+        # 的 next-key（间隙）锁，导致互不相关的会议室之间也可能被锁住甚至
+        # 死锁（已通过并发测试验证到这一问题）。READ COMMITTED 让每条语句
+        # 都读到最新已提交数据，从根上避免这两个问题，且只需要对会议室行、
+        # 预约行这两处做基于主键的 SELECT ... FOR UPDATE（主键等值查询不会
+        # 产生间隙锁）。
+        self.db.connection(execution_options={"isolation_level": "READ COMMITTED"})
+
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
-        self._check_status(booking, AuditAction.APPROVE)
+        self._assert_booking_scope(booking, operator)
 
-        # Re-check conflicts on approval
+        # 对该会议室行加排他锁，把"同一会议室"的并发审批请求在数据库层面
+        # 串行化——不同会议室之间不受影响，可以并行审批。加锁、复核冲突、
+        # 变更状态、提交必须在这一个事务内完成，中途不能提前提交，否则无法
+        # 保证互斥。
+        self.repo.lock_room_for_update(booking.room_id)
+        booking = self.repo.get_booking_by_id_for_update(booking_id)
+        if not booking:
+            raise NotFoundException("预约记录不存在")
+
+        self._check_status(booking, AuditAction.APPROVE)
         self._check_booking_conflict(booking.room_id, booking.start_time, booking.end_time, exclude_id=booking_id)
         self._check_occupy_conflict(booking.room_id, booking.start_time, booking.end_time)
 
@@ -979,6 +1017,7 @@ class MeetingRoomService:
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
+        self._assert_booking_scope(booking, operator)
         self._check_status(booking, AuditAction.REJECT)
         old_status = booking.status
         self.repo.update_booking(booking, status=BookingStatus.REJECTED)
@@ -992,6 +1031,7 @@ class MeetingRoomService:
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
+        self._assert_booking_scope(booking, operator)
         self._check_status(booking, AuditAction.RETURN_SUPPLEMENT)
         old_status = booking.status
         self.repo.update_booking(booking, status=BookingStatus.NEED_SUPPLEMENT)
@@ -1005,6 +1045,7 @@ class MeetingRoomService:
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
+        self._assert_booking_scope(booking, operator)
         self._check_status(booking, AuditAction.COMPLETE)
         old_status = booking.status
         now = datetime.utcnow()
@@ -1025,6 +1066,7 @@ class MeetingRoomService:
         booking = self.repo.get_booking_by_id(booking_id)
         if not booking:
             raise NotFoundException("预约记录不存在")
+        self._assert_booking_scope(booking, operator)
         self._check_status(booking, AuditAction.NO_SHOW)
         old_status = booking.status
         now = datetime.utcnow()

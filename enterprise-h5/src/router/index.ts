@@ -3,14 +3,32 @@ import { getToken } from '@/utils/token'
 import { buildLoginRedirect, resolveRedirectPath } from '@/utils/redirect'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
       name: 'Login',
-      component: () => import('@/views/login/MockLogin.vue'),
+      component: () => import('@/views/login/Login.vue'),
       meta: { requiresAuth: false },
     },
+    {
+      path: '/register',
+      name: 'Register',
+      component: () => import('@/views/login/Register.vue'),
+      meta: { requiresAuth: false },
+    },
+    // 开发调试登录页：仅在开发构建中注册该路由，生产构建会被 Vite 静态裁剪掉，
+    // 对应的后端 mock-login 接口在 APP_ENV=production 下也会直接返回 40401。
+    ...(import.meta.env.DEV
+      ? [
+          {
+            path: '/dev-login',
+            name: 'DevMockLogin',
+            component: () => import('@/views/login/DevMockLogin.vue'),
+            meta: { requiresAuth: false },
+          },
+        ]
+      : []),
     { path: '/', redirect: '/home' },
     {
       path: '/home',
@@ -131,7 +149,7 @@ router.beforeEach((to) => {
   const token = getToken()
   const redirectQuery = typeof to.query.redirect === 'string' ? to.query.redirect : undefined
 
-  if (to.path === '/login') {
+  if (to.path === '/login' || to.path === '/register' || to.path === '/dev-login') {
     if (token) return resolveRedirectPath(redirectQuery)
     return true
   }

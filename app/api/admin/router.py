@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
+from app.constants.permission import Permission
+from app.core.permission import require_permissions
 from app.core.response import success, paginated
 from app.core.exceptions import NotFoundException, ParamException
+from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.system import ServiceCenter, SysOperationLog
 from app.repositories.sys_user_repo import SysUserSnapshotRepository
 from app.api.admin.appeals import router as admin_appeals_router
@@ -65,7 +68,12 @@ def list_service_centers(
         ServiceCenter.status == "ENABLED",
     )
     current_region_code = current.get("region_code")
-    if current.get("data_scope") == "REGION" and current_region_code:
+    branch = resolve_scope_branch(current.get("data_scope"))
+    if branch == ScopeBranch.DENY:
+        return success(data=[])
+    if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+        if not current_region_code:
+            return success(data=[])
         q = q.filter(ServiceCenter.region_code == current_region_code)
     if regionCode:
         q = q.filter(ServiceCenter.region_code == regionCode)
@@ -85,7 +93,12 @@ def list_service_centers_page(
 ):
     q = db.query(ServiceCenter).filter(ServiceCenter.deleted_flag == 0)
     current_region_code = current.get("region_code")
-    if current.get("data_scope") == "REGION" and current_region_code:
+    branch = resolve_scope_branch(current.get("data_scope"))
+    if branch == ScopeBranch.DENY:
+        return paginated(records=[], total=0, page_no=pageNo, page_size=pageSize)
+    if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+        if not current_region_code:
+            return paginated(records=[], total=0, page_no=pageNo, page_size=pageSize)
         q = q.filter(ServiceCenter.region_code == current_region_code)
     if regionCode:
         q = q.filter(ServiceCenter.region_code == regionCode)
@@ -105,7 +118,7 @@ def list_service_centers_page(
 
 
 @router.post("/service-centers", summary="新增服务中心")
-def create_service_center(body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+def create_service_center(body: dict, current: dict = Depends(require_permissions(Permission.DICT_MANAGE)), db: Session = Depends(get_db)):
     center_name = (body.get("centerName") or "").strip()
     region_code = (body.get("regionCode") or "").strip()
     region_name = (body.get("regionName") or "").strip()
@@ -135,7 +148,7 @@ def create_service_center(body: dict, current: CurrentAdmin, db: Session = Depen
 
 
 @router.patch("/service-centers/{center_id}/status", summary="启用/停用服务中心")
-def toggle_service_center_status(center_id: int, body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+def toggle_service_center_status(center_id: int, body: dict, current: dict = Depends(require_permissions(Permission.DICT_MANAGE)), db: Session = Depends(get_db)):
     item = db.query(ServiceCenter).filter(
         ServiceCenter.id == center_id,
         ServiceCenter.deleted_flag == 0,
@@ -155,7 +168,7 @@ def toggle_service_center_status(center_id: int, body: dict, current: CurrentAdm
 
 
 @router.put("/service-centers/{center_id}", summary="修改服务中心")
-def update_service_center(center_id: int, body: dict, current: CurrentAdmin, db: Session = Depends(get_db)):
+def update_service_center(center_id: int, body: dict, current: dict = Depends(require_permissions(Permission.DICT_MANAGE)), db: Session = Depends(get_db)):
     item = db.query(ServiceCenter).filter(
         ServiceCenter.id == center_id,
         ServiceCenter.deleted_flag == 0,

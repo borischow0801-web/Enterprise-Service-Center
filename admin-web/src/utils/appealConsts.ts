@@ -132,7 +132,7 @@ export const FOLLOWUP_STATUS_MAP: Record<string, string> = {
 }
 
 // 按当前状态决定可用操作
-export type AppealAction = 'accept' | 'returnSupplement' | 'reject' | 'centerHandle' | 'assign' | 'deptReply' | 'reviewReply' | 'followup'
+export type AppealAction = 'accept' | 'returnSupplement' | 'reject' | 'centerHandle' | 'assign' | 'deptReply' | 'reviewReply' | 'followup' | 'complete'
 
 export function availableActions(status: string): AppealAction[] {
   const map: Record<string, AppealAction[]> = {
@@ -145,7 +145,7 @@ export function availableActions(status: string): AppealAction[] {
     DEPT_REPLIED: ['deptReply'],
     CENTER_REVIEWING: ['reviewReply'],
     REVIEW_REJECTED: ['assign', 'deptReply'],
-    EVALUATED: ['followup'],
+    EVALUATED: ['followup', 'complete'],
     PENDING_EVALUATION: ['followup'],
   }
   return map[status] ?? []

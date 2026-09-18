@@ -1,0 +1,47 @@
+services:
+  backend:
+    image: ${REGISTRY_HOST:-registry.example.com}/${IMAGE_NAMESPACE:-enterprise-center}/enterprise-center-backend:${IMAGE_TAG:-1.0.0}
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ${UPLOADS_HOST_DIR:-/data/enterprise-center/uploads}:${UPLOAD_DIR:-/data/uploads}
+    networks:
+      - enterprise-center
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-50m}
+        max-file: ${LOG_MAX_FILE:-5}
+
+  nginx:
+    image: ${REGISTRY_HOST:-registry.example.com}/${IMAGE_NAMESPACE:-enterprise-center}/enterprise-center-web:${IMAGE_TAG:-1.0.0}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    networks:
+      - enterprise-center
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: ${LOG_MAX_SIZE:-50m}
+        max-file: ${LOG_MAX_FILE:-5}
+
+networks:
+  enterprise-center:
+    driver: bridge

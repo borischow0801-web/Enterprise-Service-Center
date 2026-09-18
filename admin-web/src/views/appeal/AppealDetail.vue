@@ -22,29 +22,32 @@
           <template #header><span class="section-title">办理操作</span></template>
           <div class="action-buttons">
             <el-button
-              v-if="actions.includes('accept')"
+              v-if="actions.includes('accept')" v-permission="Permission.APPEAL_HANDLE"
               type="primary" @click="openDialog('accept')">受理</el-button>
             <el-button
-              v-if="actions.includes('returnSupplement')"
+              v-if="actions.includes('returnSupplement')" v-permission="Permission.APPEAL_HANDLE"
               type="warning" @click="openDialog('returnSupplement')">退回补充</el-button>
             <el-button
-              v-if="actions.includes('reject')"
+              v-if="actions.includes('reject')" v-permission="Permission.APPEAL_HANDLE"
               type="danger" @click="openDialog('reject')">不予受理</el-button>
             <el-button
-              v-if="actions.includes('centerHandle')"
+              v-if="actions.includes('centerHandle')" v-permission="Permission.APPEAL_HANDLE"
               type="success" @click="openDialog('centerHandle')">企服中心自行办理</el-button>
             <el-button
-              v-if="actions.includes('assign')"
+              v-if="actions.includes('assign')" v-permission="Permission.APPEAL_HANDLE"
               type="primary" plain @click="openDialog('assign')">分派责任部门</el-button>
             <el-button
-              v-if="actions.includes('deptReply')"
+              v-if="actions.includes('deptReply')" v-permission="[Permission.APPEAL_HANDLE, Permission.APPEAL_DEPT_REPLY]"
               type="success" plain @click="openDialog('deptReply')">部门反馈</el-button>
             <el-button
-              v-if="actions.includes('reviewReply')"
+              v-if="actions.includes('reviewReply')" v-permission="Permission.APPEAL_HANDLE"
               type="primary" @click="openDialog('reviewReply')">审核部门反馈</el-button>
             <el-button
-              v-if="actions.includes('followup')"
+              v-if="actions.includes('followup')" v-permission="Permission.APPEAL_HANDLE"
               type="info" @click="openDialog('followup')">记录回访</el-button>
+            <el-button
+              v-if="actions.includes('complete')" v-permission="Permission.APPEAL_HANDLE"
+              type="success" @click="openDialog('complete')">办结</el-button>
           </div>
         </el-card>
 
@@ -100,8 +103,8 @@
               <template #default="{ row }">{{ formatFileSize(row.fileSize) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="80">
-              <template #default>
-                <el-button link type="primary" disabled>下载</el-button><!-- TODO: 文件下载接口 -->
+              <template #default="{ row }">
+                <el-button link type="primary" @click="downloadAttachment(row.id)">下载</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -260,7 +263,20 @@
           <el-input v-model="centerHandleForm.replyContent" type="textarea" :rows="5" placeholder="请输入办理回复内容" />
         </el-form-item>
         <el-form-item label="附件">
-          <span class="todo-hint">附件上传功能待完善 TODO</span>
+          <div class="attachment-uploader">
+            <div v-for="f in centerHandleAttachments" :key="f.id" class="attachment-uploader__item">
+              <span>{{ f.originalName }}</span>
+              <el-icon @click="centerHandleAttachments = centerHandleAttachments.filter(x => x.id !== f.id)"><Close /></el-icon>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              :before-upload="(f: File) => handleDialogUpload(f, 'centerHandle')"
+              accept=".doc,.docx,.pdf,.jpg,.jpeg,.png"
+              :disabled="centerHandleUploading"
+            >
+              <el-button size="small" :loading="centerHandleUploading">上传附件（选填）</el-button>
+            </el-upload>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -299,7 +315,20 @@
           <el-input v-model="deptReplyForm.replyContent" type="textarea" :rows="5" placeholder="请输入部门办理意见" />
         </el-form-item>
         <el-form-item label="附件">
-          <span class="todo-hint">附件上传功能待完善 TODO</span>
+          <div class="attachment-uploader">
+            <div v-for="f in deptReplyAttachments" :key="f.id" class="attachment-uploader__item">
+              <span>{{ f.originalName }}</span>
+              <el-icon @click="deptReplyAttachments = deptReplyAttachments.filter(x => x.id !== f.id)"><Close /></el-icon>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              :before-upload="(f: File) => handleDialogUpload(f, 'deptReply')"
+              accept=".doc,.docx,.pdf,.jpg,.jpeg,.png"
+              :disabled="deptReplyUploading"
+            >
+              <el-button size="small" :loading="deptReplyUploading">上传附件（选填）</el-button>
+            </el-upload>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -356,6 +385,18 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="dialogs.complete" title="办结" width="480px" :close-on-click-modal="false">
+      <el-form label-width="80px">
+        <el-form-item label="备注">
+          <el-input v-model="completeForm.remark" type="textarea" :rows="3" placeholder="可选" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogs.complete = false">取消</el-button>
+        <el-button type="success" :loading="submitting" @click="submitComplete">确认办结</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -366,7 +407,8 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import {
   getAppealDetail, acceptAppeal, returnSupplementAppeal, rejectAppeal,
-  centerHandleAppeal, assignAppeal, departmentReplyAppeal, reviewReplyAppeal, addAppealFollowup
+  centerHandleAppeal, assignAppeal, departmentReplyAppeal, reviewReplyAppeal, addAppealFollowup,
+  completeAppeal,
 } from '@/api/appeal'
 import type { AppealDetail } from '@/api/appeal'
 import { formatDate } from '@/utils/format'
@@ -376,7 +418,10 @@ import {
   appealStatusText, appealTagType, urgencyText, urgencyTagType, availableActions,
   formatSatisfaction, formatResolvedFlag,
 } from '@/utils/appealConsts'
-import { getDictionary, dictToMap } from '@/api/common'
+import { getDictionary, dictToMap, uploadAttachment } from '@/api/common'
+import { Close } from '@element-plus/icons-vue'
+import { Permission } from '@/constants/permission'
+import { openSecureAttachment } from '@/utils/attachment'
 
 const route = useRoute()
 const router = useRouter()
@@ -388,11 +433,11 @@ const appealId = computed(() => Number(route.params.id))
 const actions = computed(() => detail.value ? availableActions(detail.value.status) : [])
 
 // ── 弹窗状态 ──────────────────────────────────────────────────────────────────
-type DialogKey = 'accept' | 'returnSupplement' | 'reject' | 'centerHandle' | 'assign' | 'deptReply' | 'reviewReply' | 'followup'
+type DialogKey = 'accept' | 'returnSupplement' | 'reject' | 'centerHandle' | 'assign' | 'deptReply' | 'reviewReply' | 'followup' | 'complete'
 const dialogs = ref<Record<DialogKey, boolean>>({
   accept: false, returnSupplement: false, reject: false,
   centerHandle: false, assign: false, deptReply: false,
-  reviewReply: false, followup: false
+  reviewReply: false, followup: false, complete: false
 })
 
 // ── 表单数据 ──────────────────────────────────────────────────────────────────
@@ -404,6 +449,29 @@ const assignForm = ref({ assignedDeptId: '', assignedDeptName: '', deadline: '',
 const deptReplyForm = ref({ replyContent: '' })
 const reviewForm = ref({ pass: true, opinion: '' })
 const followupForm = ref({ responsibleDeptId: '', responsibleDeptName: '', followupMethod: '', followupContent: '', followupResult: '' })
+const completeForm = ref({ remark: '' })
+
+// ── 附件上传（企服中心办理 / 部门反馈） ──────────────────────────────────────────
+interface UploadedAttachment { id: number; originalName: string }
+const centerHandleAttachments = ref<UploadedAttachment[]>([])
+const deptReplyAttachments = ref<UploadedAttachment[]>([])
+const centerHandleUploading = ref(false)
+const deptReplyUploading = ref(false)
+
+async function handleDialogUpload(file: File, target: 'centerHandle' | 'deptReply'): Promise<false> {
+  const uploadingRef = target === 'centerHandle' ? centerHandleUploading : deptReplyUploading
+  const listRef = target === 'centerHandle' ? centerHandleAttachments : deptReplyAttachments
+  uploadingRef.value = true
+  try {
+    const result = await uploadAttachment(file)
+    listRef.value = [...listRef.value, { id: result.id, originalName: result.originalName }]
+  } catch {
+    // 错误提示已由 uploadAttachment/request 拦截器统一处理
+  } finally {
+    uploadingRef.value = false
+  }
+  return false
+}
 
 // ── 表单 ref ──────────────────────────────────────────────────────────────────
 const acceptRef = ref<FormInstance>()
@@ -458,6 +526,14 @@ async function loadDetail() {
 // ── 弹窗开关 ──────────────────────────────────────────────────────────────────
 function openDialog(key: DialogKey) {
   dialogs.value[key] = true
+}
+
+async function downloadAttachment(id: number) {
+  try {
+    await openSecureAttachment(`/api/common/attachments/${id}/download`)
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || '附件下载失败')
+  }
 }
 
 // ── 字典联动 ──────────────────────────────────────────────────────────────────
@@ -546,9 +622,13 @@ async function submitReject() {
 async function submitCenterHandle() {
   await centerHandleRef.value?.validate()
   await withSubmit(async () => {
-    await centerHandleAppeal(appealId.value, { replyContent: centerHandleForm.value.replyContent })
+    await centerHandleAppeal(appealId.value, {
+      replyContent: centerHandleForm.value.replyContent,
+      attachmentIds: centerHandleAttachments.value.map(f => f.id),
+    })
     dialogs.value.centerHandle = false
     centerHandleForm.value = { replyContent: '' }
+    centerHandleAttachments.value = []
     ElMessage.success('办理成功')
   })
 }
@@ -571,9 +651,13 @@ async function submitAssign() {
 async function submitDeptReply() {
   await deptReplyRef.value?.validate()
   await withSubmit(async () => {
-    await departmentReplyAppeal(appealId.value, { replyContent: deptReplyForm.value.replyContent })
+    await departmentReplyAppeal(appealId.value, {
+      replyContent: deptReplyForm.value.replyContent,
+      attachmentIds: deptReplyAttachments.value.map(f => f.id),
+    })
     dialogs.value.deptReply = false
     deptReplyForm.value = { replyContent: '' }
+    deptReplyAttachments.value = []
     ElMessage.success('反馈提交成功')
   })
 }
@@ -602,6 +686,15 @@ async function submitFollowup() {
     dialogs.value.followup = false
     followupForm.value = { responsibleDeptId: '', responsibleDeptName: '', followupMethod: '', followupContent: '', followupResult: '' }
     ElMessage.success('回访记录已保存')
+  })
+}
+
+async function submitComplete() {
+  await withSubmit(async () => {
+    await completeAppeal(appealId.value, { remark: completeForm.value.remark || undefined })
+    dialogs.value.complete = false
+    completeForm.value = { remark: '' }
+    ElMessage.success('已办结')
   })
 }
 
@@ -716,8 +809,16 @@ onMounted(async () => {
   }
 }
 
-.todo-hint {
-  color: #999;
-  font-size: 12px;
+.attachment-uploader__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #606266;
+  margin-bottom: 6px;
+}
+.attachment-uploader__item .el-icon {
+  cursor: pointer;
+  color: #f56c6c;
 }
 </style>

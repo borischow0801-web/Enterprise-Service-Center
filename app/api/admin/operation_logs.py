@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
+from app.constants.permission import Permission
+from app.core.permission import require_permissions
 from app.core.response import paginated
 from app.models.system import SysOperationLog
 
@@ -32,7 +34,7 @@ def _to_dict(log: SysOperationLog) -> dict:
 
 @router.get("", summary="操作日志分页查询")
 def list_operation_logs(
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.OPERATION_LOG_VIEW)),
     db: Session = Depends(get_db),
     operatorType: Optional[str] = Query(None),
     operatorName: Optional[str] = Query(None),

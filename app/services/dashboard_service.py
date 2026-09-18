@@ -1,10 +1,11 @@
 """管理端工作台基础统计"""
-from sqlalchemy import func
+from sqlalchemy import func, false
 from sqlalchemy.orm import Session
 
 from app.constants.appeal import AppealStatus
 from app.constants.meeting_room import BookingStatus
 from app.constants.gov_meeting import GovMeetingStatus
+from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.appeal import AppealMain
 from app.models.meeting_room import MeetingRoom, MeetingRoomBooking
 from app.models.gov_meeting import GovMeetingApply
@@ -17,28 +18,40 @@ class DashboardService:
 
     def _appeal_query(self, data_scope: str, region_code: str, dept_id: str):
         q = self.db.query(AppealMain)
-        if data_scope == "REGION" and region_code:
-            q = q.filter(AppealMain.region_code == region_code)
-        elif data_scope in ("DEPARTMENT", "SELF") and dept_id:
-            q = q.filter(AppealMain.responsible_dept_id == dept_id)
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return q.filter(false())
+        if branch == ScopeBranch.REGION:
+            return q.filter(AppealMain.region_code == region_code) if region_code else q.filter(false())
+        if branch == ScopeBranch.DEPARTMENT:
+            return q.filter(AppealMain.responsible_dept_id == dept_id) if dept_id else q.filter(false())
         return q
 
     def _booking_query(self, data_scope: str, region_code: str):
         q = self.db.query(MeetingRoomBooking).filter(MeetingRoomBooking.deleted_flag == 0)
-        if data_scope == "REGION" and region_code:
-            q = q.filter(MeetingRoomBooking.region_code == region_code)
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return q.filter(false())
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            return q.filter(MeetingRoomBooking.region_code == region_code) if region_code else q.filter(false())
         return q
 
     def _room_query(self, data_scope: str, region_code: str):
         q = self.db.query(MeetingRoom).filter(MeetingRoom.deleted_flag == 0)
-        if data_scope == "REGION" and region_code:
-            q = q.filter(MeetingRoom.region_code == region_code)
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return q.filter(false())
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            return q.filter(MeetingRoom.region_code == region_code) if region_code else q.filter(false())
         return q
 
     def _gov_query(self, data_scope: str, region_code: str):
         q = self.db.query(GovMeetingApply).filter(GovMeetingApply.deleted_flag == 0)
-        if data_scope == "REGION" and region_code:
-            q = q.filter(GovMeetingApply.region_code == region_code)
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return q.filter(false())
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            return q.filter(GovMeetingApply.region_code == region_code) if region_code else q.filter(false())
         return q
 
     def get_summary(self, data_scope: str, region_code: str, dept_id: str) -> dict:

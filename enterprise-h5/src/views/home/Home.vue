@@ -68,7 +68,7 @@ onMounted(async () => {
   try {
     await authStore.fetchEnterpriseMe()
   } catch (e) {
-    console.warn('[Home] 刷新企业信息失败', e)
+    if (import.meta.env.DEV) console.warn('[Home] 刷新企业信息失败', e)
   }
 })
 

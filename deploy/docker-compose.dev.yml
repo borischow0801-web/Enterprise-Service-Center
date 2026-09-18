@@ -1,0 +1,6 @@
+services:
+  backend:
+    image: enterprise-center-backend:dev-test
+
+  nginx:
+    image: enterprise-center-web:dev-test

@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
+from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.appeal import AppealMain, AppealRecord, AppealAssignment, AppealFollowup
 from app.models.system import SysAttachment, SysEvaluation, SysOperationLog
 
@@ -10,7 +11,7 @@ from app.models.system import SysAttachment, SysEvaluation, SysOperationLog
 def generate_appeal_no(db: Session) -> str:
     from app.models.appeal import AppealMain
     from app.utils.serial_no import generate_daily_serial
-    return generate_daily_serial(db, AppealMain, AppealMain.appeal_no, "SQ")
+    return generate_daily_serial(db, AppealMain, AppealMain.appeal_no, "SQ", "APPEAL")
 
 
 class AppealRepository:
@@ -85,11 +86,19 @@ class AppealRepository:
     ):
         q = self.db.query(AppealMain).filter(AppealMain.deleted_flag == 0)
 
-        # Data scope filtering
-        if data_scope == "REGION" and current_region_code:
+        # Data scope filtering — Fail Closed：未知/不支持的 data_scope 一律不返回数据，
+        # 不能像过去那样在无法识别时静默退化为不限范围。
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return 0, []
+        if branch == ScopeBranch.REGION:
+            if not current_region_code:
+                return 0, []
             q = q.filter(AppealMain.region_code == current_region_code)
-        elif data_scope in ("DEPARTMENT", "SELF") and current_dept_id:
-            # TODO: SELF scope — currently treated same as DEPARTMENT
+        elif branch == ScopeBranch.DEPARTMENT:
+            if not current_dept_id:
+                return 0, []
+            # SELF 目前与 DEPARTMENT 同等对待（历史设计如此，未引入个人级归属概念）
             q = q.filter(
                 or_(
                     AppealMain.responsible_dept_id == current_dept_id,
@@ -100,6 +109,7 @@ class AppealRepository:
                     ),
                 )
             )
+        # branch == ALL：不加过滤
 
         if enterprise_name:
             q = q.filter(AppealMain.enterprise_name.like(f"%{enterprise_name}%"))

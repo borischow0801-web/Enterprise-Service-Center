@@ -6,15 +6,54 @@ from app.core.database import get_db
 from app.core.security import create_enterprise_token, create_admin_token
 from app.core.config import settings
 from app.core.response import success
-from app.schemas.auth import EnterpriseMockLoginRequest, AdminMockLoginRequest
+from app.core.exceptions import NotFoundException
+from app.schemas.auth import (
+    EnterpriseMockLoginRequest,
+    AdminMockLoginRequest,
+    EnterpriseRegisterRequest,
+    EnterpriseLoginRequest,
+)
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.repositories.sys_user_repo import SysUserSnapshotRepository
+from app.services.enterprise_auth_service import EnterpriseAuthService
 
 router = APIRouter()
 
 
-@router.post("/enterprise/mock-login", summary="企业端模拟登录")
+@router.post("/enterprise/register", summary="企业自主注册（LOCAL）")
+def enterprise_register(body: EnterpriseRegisterRequest, db: Session = Depends(get_db)):
+    svc = EnterpriseAuthService(db)
+    result = svc.register_local(body.model_dump())
+    return success(
+        data={
+            "accessToken": result["accessToken"],
+            "tokenType": "Bearer",
+            "expiresIn": settings.jwt_enterprise_expire_minutes * 60,
+        },
+        message="注册成功",
+    )
+
+
+@router.post("/enterprise/login", summary="企业密码登录（LOCAL）")
+def enterprise_login(body: EnterpriseLoginRequest, db: Session = Depends(get_db)):
+    svc = EnterpriseAuthService(db)
+    result = svc.login_local(body.creditCode, body.password)
+    return success(
+        data={
+            "accessToken": result["accessToken"],
+            "tokenType": "Bearer",
+            "expiresIn": settings.jwt_enterprise_expire_minutes * 60,
+        },
+        message="登录成功",
+    )
+
+
+@router.post("/enterprise/mock-login", summary="企业端模拟登录（仅限非生产环境）")
 def enterprise_mock_login(body: EnterpriseMockLoginRequest, db: Session = Depends(get_db)):
+    if settings.app_env == "production":
+        # 自报身份、零校验的登录方式在生产环境必须不可用，且不依赖运维手工关闭。
+        raise NotFoundException("接口不存在")
+
     repo = EnterpriseRepository(db)
     enterprise = repo.get_by_credit_code(body.creditCode)
 
@@ -59,8 +98,12 @@ def enterprise_mock_login(body: EnterpriseMockLoginRequest, db: Session = Depend
     )
 
 
-@router.post("/admin/mock-login", summary="管理端模拟登录")
+@router.post("/admin/mock-login", summary="管理端模拟登录（仅限非生产环境）")
 def admin_mock_login(body: AdminMockLoginRequest, db: Session = Depends(get_db)):
+    if settings.app_env == "production":
+        # 自报角色/数据权限、零校验的登录方式在生产环境必须不可用，且不依赖运维手工关闭。
+        raise NotFoundException("接口不存在")
+
     repo = SysUserSnapshotRepository(db)
     user = repo.get_by_platform_user_id(body.platformUserId)
 

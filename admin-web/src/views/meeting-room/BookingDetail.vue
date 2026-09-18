@@ -9,7 +9,7 @@
         </el-tag>
         <span class="meeting-subject">{{ detail.meetingSubject }}</span>
       </div>
-      <div class="header-actions" v-if="detail && showAuditActions">
+      <div class="header-actions" v-if="detail && showAuditActions" v-permission="Permission.MEETING_BOOKING_HANDLE">
         <template v-if="['PENDING_AUDIT', 'NEED_SUPPLEMENT'].includes(detail.status)">
           <el-button type="success" :loading="submitLoading" @click="handleApprove">审核通过</el-button>
           <el-button type="danger" @click="openOpinionDialog('reject')">审核驳回</el-button>
@@ -226,6 +226,8 @@ import type {
 } from '@/api/meetingRoom'
 import { getDictionary } from '@/api/common'
 import { formatDate } from '@/utils/format'
+import { fetchSecureAttachmentBlobUrl } from '@/utils/attachment'
+import { Permission } from '@/constants/permission'
 
 const route = useRoute()
 const router = useRouter()
@@ -336,16 +338,21 @@ function isImageFile(att: BookingAttachment): boolean {
 const imagePreviewVisible = ref(false)
 const imagePreviewUrl = ref('')
 
-function openImagePreview(att: BookingAttachment) {
-  imagePreviewUrl.value = resolveDownloadUrl(att)
-  imagePreviewVisible.value = true
+async function openImagePreview(att: BookingAttachment) {
+  try {
+    imagePreviewUrl.value = await fetchSecureAttachmentBlobUrl(resolveDownloadUrl(att))
+    imagePreviewVisible.value = true
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || '附件预览失败')
+  }
 }
 
-function downloadAttachment(att: BookingAttachment) {
-  const url = resolveDownloadUrl(att)
-  const win = window.open(url, '_blank')
-  if (!win) {
-    ElMessage.error('附件下载失败，请检查文件是否存在或服务器上传目录权限')
+async function downloadAttachment(att: BookingAttachment) {
+  try {
+    const objectUrl = await fetchSecureAttachmentBlobUrl(resolveDownloadUrl(att))
+    window.open(objectUrl, '_blank')
+  } catch (e: unknown) {
+    ElMessage.error((e as Error)?.message || '附件下载失败')
   }
 }
 

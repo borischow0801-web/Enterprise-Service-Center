@@ -1,0 +1,35 @@
+# 麒麟 V10 生产部署现场清单
+
+- [ ] 已填写 APP_SERVER_IP、DB_SERVER_IP、域名、数据库名、数据库用户、数据库密码、Registry、镜像版本、CORS Origin、APP_SECRET_KEY
+- [ ] 两台服务器网络互通
+- [ ] 数据库服务器已安装 MySQL 8
+- [ ] MySQL 字符集为 utf8mb4
+- [ ] 已创建应用专用数据库用户，未使用 root
+- [ ] MySQL `bind-address` 允许应用服务器访问
+- [ ] 数据库服务器 firewalld 仅允许 `<APP_SERVER_IP>` 访问 3306
+- [ ] 应用服务器已安装 Docker Engine
+- [ ] 应用服务器已安装 Docker Compose Plugin
+- [ ] Docker 已设置开机自启动
+- [ ] 已创建 `/opt/enterprise-center` 与 `/data/enterprise-center/uploads`
+- [ ] uploads 目录权限不是 777，backend 容器用户可写
+- [ ] 已将 `deploy/docker-compose.yml`、`deploy/nginx/`、`deploy/scripts/`、`deploy/.env` 放到 `/opt/enterprise-center`
+- [ ] 已执行 `docker login <REGISTRY_HOST>`
+- [ ] `.env` 已完成且不含占位密码/占位 Secret
+- [ ] 从应用服务器可连接 `<DB_SERVER_IP>:3306`
+- [ ] 已执行 `docker compose pull`
+- [ ] 已备份数据库和 uploads
+- [ ] 首次 migration 已执行成功：`docker compose run --rm backend alembic upgrade head`
+- [ ] 容器已启动：`docker compose up -d`
+- [ ] `docker compose ps` 显示 backend/nginx healthy
+- [ ] `/api/health` 可访问
+- [ ] 企业 H5 `/` 可访问
+- [ ] 管理端 `/admin/` 可访问，刷新子路由不 404
+- [ ] 企业登录 smoke test 通过
+- [ ] 管理端登录 smoke test 通过（生产环境应使用真实登录，不使用 mock-login）
+- [ ] 后端可访问 MySQL，`alembic current` 为 `011_sys_daily_serial (head)` 或更新 head
+- [ ] 上传文件成功
+- [ ] 下载文件成功
+- [ ] 删除并重建 backend 容器后，已上传文件仍可下载
+- [ ] Docker 日志轮转配置生效
+- [ ] 数据库备份策略已验证
+- [ ] 回滚方案已演练或已确认负责人

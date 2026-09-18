@@ -2,7 +2,7 @@
   <div>
     <div class="page-header">
       <h2>会议室管理</h2>
-      <div class="header-actions">
+      <div class="header-actions" v-permission="Permission.MEETING_ROOM_MANAGE">
         <el-button @click="openSpecialDateDialog">配置特殊日期</el-button>
         <el-button @click="openMaterialRulesDialog">申请材料规则配置</el-button>
         <el-button type="primary" @click="openRoomForm(null)">+ 新增会议室</el-button>
@@ -77,8 +77,8 @@
         </el-table-column>
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openRoomForm(row)">编辑</el-button>
-            <el-button link :type="row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleStatus(row)">
+            <el-button link type="primary" v-permission="Permission.MEETING_ROOM_MANAGE" @click="openRoomForm(row)">编辑</el-button>
+            <el-button link :type="row.status === 'ENABLED' ? 'warning' : 'success'" v-permission="Permission.MEETING_ROOM_MANAGE" @click="handleToggleStatus(row)">
               {{ row.status === 'ENABLED' ? '停用' : '启用' }}
             </el-button>
             <el-button link type="primary" @click="openOpenRulesDialog(row)">开放规则</el-button>
@@ -339,7 +339,7 @@
           <el-option label="启用" :value="1" />
           <el-option label="停用" :value="0" />
         </el-select>
-        <el-button type="primary" size="small" @click="openMaterialRuleForm(null)">+ 新增材料规则</el-button>
+        <el-button type="primary" size="small" v-permission="Permission.MEETING_ROOM_MANAGE" @click="openMaterialRuleForm(null)">+ 新增材料规则</el-button>
       </div>
 
       <el-table :data="materialRuleList" v-loading="matLoading" border stripe>
@@ -366,8 +366,8 @@
         </el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openMaterialRuleForm(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDeleteMaterialRule(row.id)">删除</el-button>
+            <el-button link type="primary" v-permission="Permission.MEETING_ROOM_MANAGE" @click="openMaterialRuleForm(row)">编辑</el-button>
+            <el-button link type="danger" v-permission="Permission.MEETING_ROOM_MANAGE" @click="handleDeleteMaterialRule(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -473,6 +473,7 @@ import {
 import type { MeetingRoom, OpenRuleItem, MaterialRule, RoomImageItem, ServiceCenter } from '@/api/meetingRoom'
 import { getDictionary, uploadAttachment } from '@/api/common'
 import { MAX_UPLOAD_TIP, validateFileSize } from '@/constants/upload'
+import { Permission } from '@/constants/permission'
 
 // ── 字典选项 ──────────────────────────────────────────────────────────────────
 const regionOptions = ref<{value:string;label:string}[]>([])

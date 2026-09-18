@@ -7,8 +7,10 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
 import router from './router'
 import '@/styles/index.scss'
+import { installPermissionDirective } from '@/directives/permission'
 
 const app = createApp(App)
+installPermissionDirective(app)
 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)

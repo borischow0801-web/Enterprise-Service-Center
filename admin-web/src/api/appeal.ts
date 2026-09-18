@@ -179,3 +179,7 @@ export function addAppealFollowup(id: number, body: {
 }): Promise<unknown> {
   return post(`/api/admin/appeals/${id}/followup`, body)
 }
+
+export function completeAppeal(id: number, body: { remark?: string }): Promise<AppealItem> {
+  return post<AppealItem>(`/api/admin/appeals/${id}/complete`, body)
+}

@@ -1,10 +1,28 @@
-from datetime import datetime
+from datetime import date as date_type, datetime
 from typing import Optional
-from sqlalchemy import BigInteger, DateTime, Index, Integer, SmallInteger, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Date, DateTime, Index, Integer, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.models.base import TimestampMixin
+
+
+class SysDailySerial(Base):
+    """按日流水号计数器：每个 (business_type, business_date) 对应一行，
+    current_value 通过原子 UPDATE 自增，作为 app/utils/serial_no.py 生成
+    Appeal/MeetingRoomBooking/GovMeetingApply 编号的并发安全计数源。
+    不参与任何业务归属查询，只用作互斥计数，因此不使用 TimestampMixin。"""
+
+    __tablename__ = "sys_daily_serial"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    business_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    business_date: Mapped[date_type] = mapped_column(Date, nullable=False)
+    current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("business_type", "business_date", name="uq_sys_daily_serial_type_date"),
+    )
 
 
 class ServiceCenter(TimestampMixin, Base):
@@ -110,7 +128,8 @@ class SysEvaluation(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     business_type: Mapped[str] = mapped_column(String(50), nullable=False)
     business_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    enterprise_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # 索引通过下方 __table_args__ 的显式 Index() 声明，此处不再重复加 index=True
+    enterprise_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     satisfaction: Mapped[str] = mapped_column(String(50), nullable=False)
     score: Mapped[int] = mapped_column(Integer, nullable=False)
     resolved_flag: Mapped[Optional[int]] = mapped_column(SmallInteger, nullable=True)
@@ -134,7 +153,8 @@ class SysOperationLog(Base):
     operator_name: Mapped[str] = mapped_column(String(100), nullable=False)
     business_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     business_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    operation_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    # 索引通过下方 __table_args__ 的显式 Index() 声明，此处不再重复加 index=True
+    operation_type: Mapped[str] = mapped_column(String(100), nullable=False)
     operation_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     before_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     after_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

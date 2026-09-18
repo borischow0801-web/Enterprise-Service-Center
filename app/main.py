@@ -26,26 +26,37 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# 生产环境关闭 Swagger/ReDoc/OpenAPI schema，避免向外暴露完整接口面（含管理端路由与请求/
+# 响应结构）；开发环境保持开放，不影响联调效率。
+_is_production = settings.app_env == "production"
+
 app = FastAPI(
     title="企业服务中心系统",
     description="Enterprise Service Center API",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
+    openapi_url=None if _is_production else "/openapi.json",
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# 开发阶段允许管理端/企业端 Vite 端口（5174 被占用时可能落到 5175）
+# 生产环境通过 CORS_ALLOWED_ORIGINS 环境变量显式配置允许的前端域名（见 app/core/config.py）；
+# 未配置时回退到开发环境的本地/内网端口白名单，不会因为漏配就放开成 "*"。
+_dev_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+]
+_cors_origins = settings.cors_allowed_origins_list or _dev_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-    ],
-    allow_origin_regex=r"http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:517[3-5]",
+    allow_origins=_cors_origins,
+    # 内网开发调试正则仅在未显式配置生产域名时生效
+    allow_origin_regex=None if settings.cors_allowed_origins_list else r"http://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:517[3-5]",
     allow_credentials=False,   # allow_credentials=True 与 allow_origins=["*"] 不兼容
     allow_methods=["*"],
     allow_headers=["*"],

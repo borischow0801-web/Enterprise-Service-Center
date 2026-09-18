@@ -17,6 +17,58 @@
         </van-button>
       </div>
 
+      <van-notice-bar
+        v-if="detail.status === 'NEED_SUPPLEMENT'"
+        left-icon="info-o"
+        color="#ed6a0c"
+        background="#fff7e8"
+        :scrollable="false"
+        wrapable
+        style="margin-top:12px"
+      >
+        退回补充原因：{{ returnSupplementOpinion || '暂无说明' }}
+      </van-notice-bar>
+
+      <!-- 补充材料 -->
+      <van-cell-group
+        v-if="detail.status === 'NEED_SUPPLEMENT'"
+        inset title="补充材料" style="margin-top:12px"
+      >
+        <van-field
+          v-model="supplementContent"
+          type="textarea"
+          rows="3"
+          maxlength="500"
+          show-word-limit
+          placeholder="请输入补充说明（必填）"
+        />
+        <div class="supplement-files">
+          <div v-for="f in supplementFiles" :key="f.id" class="file-item">
+            <van-icon name="description" color="#1989fa" size="18" />
+            <span class="file-name">{{ f.originalName }}</span>
+            <van-icon name="cross" @click="removeSupplementFile(f.id)" />
+          </div>
+          <van-uploader
+            :after-read="handleSupplementUpload"
+            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+            :max-size="10 * 1024 * 1024"
+            @oversize="showToast('单个文件不能超过10MB')"
+            :disabled="supplementUploading"
+          >
+            <van-button icon="plus" size="small" plain type="primary" :loading="supplementUploading">
+              上传附件（选填）
+            </van-button>
+          </van-uploader>
+        </div>
+        <div style="padding:12px 16px">
+          <van-button
+            type="primary" round block
+            :loading="supplementSubmitting"
+            @click="submitSupplement"
+          >提交补充</van-button>
+        </div>
+      </van-cell-group>
+
       <van-cell-group inset title="诉求信息" class="content-block" style="margin-top:12px">
         <van-cell title="诉求标题" :value="detail.title" />
         <van-cell title="诉求类型" :value="detail.appealTypeName || '--'" />
@@ -81,8 +133,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getAppealDetail } from '@/api/appeal'
+import { showToast } from 'vant'
+import type { UploaderFileListItem } from 'vant'
+import { getAppealDetail, supplementAppeal } from '@/api/appeal'
 import type { AppealDetail as Detail, AppealRecord } from '@/api/appeal'
+import { uploadAttachment } from '@/api/common'
+import { validateFileSize } from '@/constants/upload'
 import { formatDate } from '@/utils/format'
 import { statusLabel, statusBannerGradient } from '@/utils/status'
 
@@ -99,6 +155,69 @@ const canEvaluate = computed(() =>
 const replyRecord = computed<AppealRecord | undefined>(() =>
   detail.value?.records.find(r => ['CENTER_HANDLE', 'REVIEW_PASS'].includes(r.actionType))
 )
+
+const returnSupplementOpinion = computed(() => {
+  const records = detail.value?.records || []
+  for (let i = records.length - 1; i >= 0; i--) {
+    if (records[i].actionType === 'RETURN_SUPPLEMENT') return records[i].opinion
+  }
+  return null
+})
+
+const supplementContent = ref('')
+const supplementFiles = ref<{ id: number; originalName: string; fileSize: number }[]>([])
+const supplementUploading = ref(false)
+const supplementSubmitting = ref(false)
+
+async function handleSupplementUpload(items: UploaderFileListItem | UploaderFileListItem[]) {
+  const itemList = Array.isArray(items) ? items : [items]
+  for (const item of itemList) {
+    if (!item.file) continue
+    const sizeErr = validateFileSize(item.file)
+    if (sizeErr) { showToast(sizeErr); continue }
+    supplementUploading.value = true
+    try {
+      const result = await uploadAttachment(item.file)
+      supplementFiles.value = [
+        ...supplementFiles.value,
+        { id: result.id, originalName: result.originalName, fileSize: result.fileSize },
+      ]
+      showToast('上传成功')
+    } catch (e: unknown) {
+      const err = e as { message?: string }
+      showToast(err?.message || '上传失败，请重试')
+    } finally {
+      supplementUploading.value = false
+    }
+  }
+}
+
+function removeSupplementFile(id: number) {
+  supplementFiles.value = supplementFiles.value.filter(f => f.id !== id)
+}
+
+async function submitSupplement() {
+  if (!supplementContent.value.trim()) {
+    showToast('请输入补充说明')
+    return
+  }
+  supplementSubmitting.value = true
+  try {
+    await supplementAppeal(Number(route.params.id), {
+      content: supplementContent.value.trim(),
+      attachmentIds: supplementFiles.value.map(f => f.id),
+    })
+    showToast({ type: 'success', message: '提交成功' })
+    supplementContent.value = ''
+    supplementFiles.value = []
+    await loadDetail()
+  } catch (e: unknown) {
+    const err = e as { message?: string }
+    showToast(err?.message || '提交失败，请重试')
+  } finally {
+    supplementSubmitting.value = false
+  }
+}
 
 function urgencyText(code?: string | null) {
   const m: Record<string,string> = { NORMAL: '普通', URGENT: '紧急', VERY_URGENT: '非常紧急' }
@@ -127,5 +246,21 @@ onActivated(loadDetail)
   background: var(--esc-bg);
   border-radius: var(--esc-radius-sm);
   margin: 8px;
+}
+.supplement-files {
+  padding: 8px 16px;
+}
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

@@ -1,0 +1,33 @@
+# Git and local environment
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Python caches and tests
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+requirements-dev.txt
+
+# Runtime data
+uploads/
+logs/
+*.log
+
+# Frontend dependencies and build output
+admin-web/node_modules/
+admin-web/dist/
+enterprise-h5/node_modules/
+enterprise-h5/dist/
+
+# Editor/system files
+.vscode/
+.idea/
+.DS_Store

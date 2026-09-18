@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 
+from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.gov_meeting import (
     GovMeetingApply, GovMeetingAudit, GovMeetingArrangement,
     GovMeetingParticipant, GovMeetingRecord,
@@ -13,7 +14,7 @@ from app.models.system import SysAttachment, SysOperationLog, SysEvaluation
 
 def generate_apply_no(db: Session) -> str:
     from app.utils.serial_no import generate_daily_serial
-    return generate_daily_serial(db, GovMeetingApply, GovMeetingApply.apply_no, "YJ")
+    return generate_daily_serial(db, GovMeetingApply, GovMeetingApply.apply_no, "YJ", "GOV_MEETING")
 
 
 class GovMeetingRepository:
@@ -63,7 +64,14 @@ class GovMeetingRepository:
                            region_code_filter, service_center_id, page_no, page_size,
                            data_scope, current_region_code):
         q = self.db.query(GovMeetingApply).filter(GovMeetingApply.deleted_flag == 0)
-        if data_scope == "REGION" and current_region_code:
+        # Fail Closed：政企约见没有部门级归属概念，DEPARTMENT/SELF 按区域近似处理
+        # （与会议室模块一致的历史设计），未知 data_scope 一律不返回数据。
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return 0, []
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            if not current_region_code:
+                return 0, []
             q = q.filter(GovMeetingApply.region_code == current_region_code)
         if enterprise_name:
             q = q.filter(GovMeetingApply.enterprise_name.like(f"%{enterprise_name}%"))

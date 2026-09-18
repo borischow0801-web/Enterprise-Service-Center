@@ -3,6 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 
+from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.meeting_room import (
     MeetingRoom, MeetingRoomImage, MeetingRoomOpenRule, MeetingRoomSpecialDate,
     MeetingRoomOccupy, MeetingRoomMaterialRule, MeetingRoomBooking,
@@ -14,7 +15,7 @@ from app.constants.meeting_room import BookingStatus
 
 def generate_booking_no(db: Session) -> str:
     from app.utils.serial_no import generate_daily_serial
-    return generate_daily_serial(db, MeetingRoomBooking, MeetingRoomBooking.booking_no, "HY")
+    return generate_daily_serial(db, MeetingRoomBooking, MeetingRoomBooking.booking_no, "HY", "MEETING_BOOKING")
 
 
 class MeetingRoomRepository:
@@ -27,6 +28,15 @@ class MeetingRoomRepository:
         return self.db.query(MeetingRoom).filter(
             MeetingRoom.id == room_id, MeetingRoom.deleted_flag == 0
         ).first()
+
+    def lock_room_for_update(self, room_id: int) -> Optional[MeetingRoom]:
+        """对该会议室行加排他锁（SELECT ... FOR UPDATE），锁持续到调用方
+        所在事务提交/回滚为止。用于将"同一会议室"的审批操作序列化，
+        不同会议室之间互不阻塞。这是一次锁定读，会读取最新已提交数据，
+        忽略当前事务（REPEATABLE READ）建立的一致性快照。"""
+        return self.db.query(MeetingRoom).filter(
+            MeetingRoom.id == room_id, MeetingRoom.deleted_flag == 0
+        ).with_for_update().first()
 
     def list_rooms_enterprise(self, region_code, capacity_min, facility, room_type, page_no, page_size):
         q = self.db.query(MeetingRoom).filter(
@@ -46,9 +56,15 @@ class MeetingRoomRepository:
 
     def list_rooms_admin(self, region_code, service_center_id, status, room_type, page_no, page_size, data_scope, current_region_code):
         q = self.db.query(MeetingRoom).filter(MeetingRoom.deleted_flag == 0)
-        if data_scope == "REGION" and current_region_code:
+        # Fail Closed：会议室模块没有部门级归属概念，DEPARTMENT/SELF 按区域近似处理
+        # （历史设计如此），未知 data_scope 一律不返回数据。
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return 0, []
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            if not current_region_code:
+                return 0, []
             q = q.filter(MeetingRoom.region_code == current_region_code)
-        # DEPARTMENT/SELF: TODO — treated same as REGION for meeting rooms
         if region_code:
             q = q.filter(MeetingRoom.region_code == region_code)
         if service_center_id:
@@ -346,6 +362,14 @@ class MeetingRoomRepository:
             MeetingRoomBooking.id == booking_id, MeetingRoomBooking.deleted_flag == 0
         ).first()
 
+    def get_booking_by_id_for_update(self, booking_id: int) -> Optional[MeetingRoomBooking]:
+        """锁定读，配合 lock_room_for_update 使用：在持有房间锁之后重新读取
+        该预约的最新状态，避免 REPEATABLE READ 快照读到锁等待期间已被其他
+        并发事务修改（例如同一预约被并发重复审批）之前的旧状态。"""
+        return self.db.query(MeetingRoomBooking).filter(
+            MeetingRoomBooking.id == booking_id, MeetingRoomBooking.deleted_flag == 0
+        ).with_for_update().first()
+
     def get_booking_by_id_and_enterprise(self, booking_id: int, enterprise_id: int) -> Optional[MeetingRoomBooking]:
         return self.db.query(MeetingRoomBooking).filter(
             MeetingRoomBooking.id == booking_id,
@@ -378,9 +402,15 @@ class MeetingRoomRepository:
 
     def list_bookings_admin(self, room_id, enterprise_name, credit_code, status, start_date, end_date, region_code_filter, service_center_id, page_no, page_size, data_scope, current_region_code):
         q = self.db.query(MeetingRoomBooking).filter(MeetingRoomBooking.deleted_flag == 0)
-        if data_scope == "REGION" and current_region_code:
+        # Fail Closed：会议室预约没有部门级归属概念，DEPARTMENT/SELF 按区域近似处理
+        # （历史设计如此），未知 data_scope 一律不返回数据。
+        branch = resolve_scope_branch(data_scope)
+        if branch == ScopeBranch.DENY:
+            return 0, []
+        if branch in (ScopeBranch.REGION, ScopeBranch.DEPARTMENT):
+            if not current_region_code:
+                return 0, []
             q = q.filter(MeetingRoomBooking.region_code == current_region_code)
-        # DEPARTMENT/SELF: TODO — treated as REGION
         if room_id:
             q = q.filter(MeetingRoomBooking.room_id == room_id)
         if enterprise_name:

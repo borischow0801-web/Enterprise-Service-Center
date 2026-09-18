@@ -13,17 +13,17 @@
         active-text-color="#fff"
         class="side-menu"
       >
-        <el-menu-item index="/dashboard">
+        <el-menu-item v-permission="Permission.DASHBOARD_VIEW" index="/dashboard">
           <el-icon><Odometer /></el-icon>
           <span>工作台</span>
         </el-menu-item>
 
-        <el-menu-item index="/appeals">
+        <el-menu-item v-permission="Permission.APPEAL_VIEW" index="/appeals">
           <el-icon><ChatDotRound /></el-icon>
           <span>诉求管理</span>
         </el-menu-item>
 
-        <el-sub-menu index="meeting">
+        <el-sub-menu v-if="hasPermission(Permission.MEETING_ROOM_VIEW)" index="meeting">
           <template #title>
             <el-icon><OfficeBuilding /></el-icon>
             <span>会议室管理</span>
@@ -32,18 +32,18 @@
           <el-menu-item index="/meeting-bookings">预约管理</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/gov-meetings">
+        <el-menu-item v-permission="Permission.GOV_MEETING_VIEW" index="/gov-meetings">
           <el-icon><UserFilled /></el-icon>
           <span>政企约见</span>
         </el-menu-item>
 
-        <el-sub-menu index="system">
+        <el-sub-menu v-if="hasPermission(Permission.DICT_MANAGE, Permission.OPERATION_LOG_VIEW)" index="system">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
-          <el-menu-item index="/system/dictionaries">字典管理</el-menu-item>
-          <el-menu-item index="/system/operation-logs">操作日志</el-menu-item>
+          <el-menu-item v-permission="Permission.DICT_MANAGE" index="/system/dictionaries">字典管理</el-menu-item>
+          <el-menu-item v-permission="Permission.OPERATION_LOG_VIEW" index="/system/operation-logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -73,6 +73,8 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { hasPermission } from '@/utils/permission'
+import { Permission } from '@/constants/permission'
 
 const route = useRoute()
 const router = useRouter()

@@ -4,6 +4,8 @@ from typing import Optional
 
 from app.core.database import get_db
 from app.core.deps import CurrentAdmin
+from app.constants.permission import Permission
+from app.core.permission import require_permissions
 from app.core.response import success, paginated
 from app.core.exceptions import AppException, NotFoundException
 from app.models.system import SysDictionary, SysOperationLog
@@ -55,7 +57,7 @@ def _write_op_log(db: Session, current: dict, op_type: str, dict_type: str,
 
 @router.get("", summary="字典分页列表（仅可维护类型）")
 def list_dictionaries(
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.DICT_MANAGE)),
     db: Session = Depends(get_db),
     dictType: Optional[str] = Query(None),
     dictCode: Optional[str] = Query(None),
@@ -88,7 +90,7 @@ def list_dictionaries(
 @router.post("", summary="新增字典")
 def create_dictionary(
     body: dict,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.DICT_MANAGE)),
     db: Session = Depends(get_db),
 ):
     dict_type = body.get("dictType") or ""
@@ -128,7 +130,7 @@ def create_dictionary(
 def update_dictionary(
     dict_id: int,
     body: dict,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.DICT_MANAGE)),
     db: Session = Depends(get_db),
 ):
     item = db.query(SysDictionary).filter(
@@ -172,7 +174,7 @@ def update_dictionary(
 def toggle_dictionary_status(
     dict_id: int,
     body: dict,
-    current: CurrentAdmin,
+    current: dict = Depends(require_permissions(Permission.DICT_MANAGE)),
     db: Session = Depends(get_db),
 ):
     item = db.query(SysDictionary).filter(
