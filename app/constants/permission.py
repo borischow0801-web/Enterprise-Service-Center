@@ -63,6 +63,7 @@ class Permission:
     DICT_MANAGE = "DICT_MANAGE"                     # 字典维护（含服务中心维护）
     OPERATION_LOG_VIEW = "OPERATION_LOG_VIEW"
     DASHBOARD_VIEW = "DASHBOARD_VIEW"
+    ADMIN_USER_MANAGE = "ADMIN_USER_MANAGE"         # 管理员账号/角色/数据权限维护（sys_admin_user）
 
 
 _ALL_PERMISSIONS = {

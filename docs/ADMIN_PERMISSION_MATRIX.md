@@ -13,7 +13,9 @@
 | `DEPT_USER` | 部门办理人员 | 本部门相关事项 |
 | `ROOM_ADMIN` | 会议室管理员 | 本区县会议室和预约 |
 
-数据范围一栏对应后端 `data_scope` 字段（`ALL`/`REGION`/`DEPARTMENT`），由 `app/core/permission.py::DataPermissionService` 独立于角色强制执行——**角色权限和数据权限是两个正交的维度**，登录时仍按现有 mock-login 机制自报 `dataScope`，本轮工作只是让二者都真正被后端校验，不是把 dataScope 与角色绑死。
+数据范围一栏对应后端 `data_scope` 字段（`ALL`/`REGION`/`DEPARTMENT`/`SELF`），由 `app/core/permission.py::DataPermissionService` 独立于角色强制执行——**角色权限和数据权限是两个正交的维度**。
+
+> **更新（管理端统一身份认证改造后）**：正式登录（`POST /api/auth/admin/login`，接入 BSPPLUS）不再允许登录请求自报 `roleCodes`/`dataScope`/`regionCode`/`departmentId`——这些字段改为只能来自本系统 `sys_admin_user` 表，由"系统管理 → 管理员管理"维护（见 `app/api/admin/admin_users.py`）。`admin_mock_login`（`POST /api/auth/admin/mock-login`）仍然沿用自报机制，但只在 `APP_ENV != production` 时可用，且写入的是另一张独立的 `sys_user_snapshot` 表，不会污染正式管理员数据。
 
 ## 功能权限清单
 
@@ -32,6 +34,7 @@
 | `DICT_MANAGE` | 字典维护 + 服务中心维护（新增/修改/启停） |
 | `OPERATION_LOG_VIEW` | 操作日志查询 |
 | `DASHBOARD_VIEW` | 管理端工作台统计概览 |
+| `ADMIN_USER_MANAGE` | 管理员账号维护：新增/编辑/启停、分配角色与区划/部门/数据范围（`sys_admin_user`） |
 
 说明：任务要求列出的"业务办理"与"审批"在本系统里由同一批角色（企服中心）执行同一组接口完成（受理即审批，办理即处理），因此合并为 `*_HANDLE`，不再拆分成两个权限编码——拆分后不会带来任何实际可区分的角色-权限组合，反而会成为多余的维度。
 
@@ -50,6 +53,7 @@
 | 字典维护（含服务中心维护） | ✓ | ✓ | ✓ | — | — | — |
 | 操作日志查看 | ✓ | ✓ | ✓ | — | — | — |
 | 管理端工作台 | ✓ | ✓ | ✓ | ✓ | — | — |
+| 管理员账号管理 | ✓ | ✓ | — | — | — | — |
 
 `*` = 通过 `APPEAL_HANDLE` 间接具备（该权限本身覆盖的动作集合里就包含部门反馈这个 API，因为设计文档允许"企服中心线下协调后代录办理结果"），并非额外单独授予 `APPEAL_DEPT_REPLY`。
 
@@ -61,6 +65,7 @@
 2. **CENTER_STAFF 是否应具备 `DICT_MANAGE`/`OPERATION_LOG_VIEW`**：本轮判断字典维护和操作日志查看属于管理配置类操作，划给 `CENTER_ADMIN` 更合适，`CENTER_STAFF`（一线工作人员）不授予。如果业务上企服中心工作人员也需要自行维护字典或查操作日志，需要调整。
 3. **ROOM_ADMIN 是否需要 `DASHBOARD_VIEW`**：工作台目前是跨三个模块的汇总视图，本轮未授予 `ROOM_ADMIN`（其职责局限于会议室域）。如果会议室管理员也需要看整体工作台，可以追加。
 4. **服务中心（`service-centers`）管理权限**：设计文档未提及该资源的权限归属。本轮将其列表查看设为"任意已登录管理端用户可见"（供创建会议室时选择归属中心，且已按 A2 的 fail-closed 数据范围过滤），新增/修改/启停归入 `DICT_MANAGE`。如果服务中心信息应视为更敏感的配置项，建议单独拆出权限码。
+5. **`ADMIN_USER_MANAGE` 是否应下放给 CENTER_ADMIN**：本轮判定为不下放，只给 `PLATFORM_ADMIN`/`CITY_ADMIN`。理由：能在"管理员管理"里给别人分配角色，本身就是一种可以把任意账号提权到 `PLATFORM_ADMIN` 的能力，下放给 `CENTER_ADMIN` 会造成越权风险（一个企服中心管理员可以给自己或他人分配平台级角色）。如果业务上需要让 `CENTER_ADMIN` 管理"本中心范围内"的账号，需要在 `app/api/admin/admin_users.py` 补充按 `region_code`/`department_id` 的数据范围过滤，而不是简单加一行权限映射。
 
 ## 前后端一致性
 

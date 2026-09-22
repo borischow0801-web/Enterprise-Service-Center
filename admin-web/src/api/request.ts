@@ -19,6 +19,21 @@ const request = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// 登录类接口的请求体含明文密码，即使只是开发环境的浏览器 console.debug 也不允许
+// 出现——不能依赖"反正是本地日志"来放宽，脱敏在这里统一兜底，不要求每个调用方记得。
+const _SENSITIVE_BODY_URL_PATTERN = /\/api\/auth\/(admin|enterprise)\/(login|mock-login|register)/
+
+function _redactForLog(url: string | undefined, data: unknown): unknown {
+  if (!url || !_SENSITIVE_BODY_URL_PATTERN.test(url) || typeof data !== 'object' || data === null) {
+    return data
+  }
+  const redacted: Record<string, unknown> = { ...(data as Record<string, unknown>) }
+  for (const key of Object.keys(redacted)) {
+    if (/password/i.test(key)) redacted[key] = '***'
+  }
+  return redacted
+}
+
 // ── Request interceptor ───────────────────────────────────────────────────────
 request.interceptors.request.use(
   (config) => {
@@ -27,7 +42,8 @@ request.interceptors.request.use(
       config.headers['Authorization'] = `Bearer ${token}`
     }
     if (import.meta.env.DEV) {
-      console.debug(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data ?? config.params ?? '')
+      const logged = config.data !== undefined ? _redactForLog(config.url, config.data) : (config.params ?? '')
+      console.debug(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, logged)
     }
     return config
   },

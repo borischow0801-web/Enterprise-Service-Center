@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     upload_dir: str = Field(default=str(_PROJECT_ROOT / "uploads"), env="UPLOAD_DIR")
     max_upload_size: int = Field(10485760, env="MAX_UPLOAD_SIZE")
 
+    # BSPPLUS（浪潮政务服务基础服务）统一身份认证对接配置。
+    # 地址/appCode 均不得写死在业务代码里，必须由部署环境注入；开发环境允许留空
+    # （留空时管理端正式登录接口会返回"统一身份认证服务未配置"，不影响 mock-login 走开发流程）。
+    bspplus_api_root: str = Field("", env="BSPPLUS_API_ROOT")
+    bspplus_app_code: str = Field("", env="BSPPLUS_APP_CODE")
+    bspplus_connect_timeout_seconds: float = Field(5.0, env="BSPPLUS_CONNECT_TIMEOUT_SECONDS")
+    bspplus_read_timeout_seconds: float = Field(10.0, env="BSPPLUS_READ_TIMEOUT_SECONDS")
+
     # 生产环境需要通过环境变量显式配置允许的前端域名（逗号分隔），例如：
     # CORS_ALLOWED_ORIGINS=https://admin.example.com,https://h5.example.com
     # 未配置时回退到开发环境的本地/内网端口白名单——不会因为漏配就放开成 "*"。
@@ -76,6 +84,12 @@ class Settings(BaseSettings):
                 "生产环境必须通过部署环境变量注入一个稳定的高强度随机密钥，"
                 "不允许使用示例/默认值启动，也不会自动生成——随机生成的密钥会在"
                 "容器重启后失效，导致所有已签发 Token 失效。"
+            )
+        if not self.bspplus_api_root or not self.bspplus_app_code:
+            raise ValueError(
+                "APP_ENV=production 但 BSPPLUS_API_ROOT / BSPPLUS_APP_CODE 未配置。"
+                "生产环境管理端登录依赖统一身份认证（BSPPLUS），必须显式配置对接地址和应用编码，"
+                "不允许静默回退到不可用状态启动。"
             )
         return self
 

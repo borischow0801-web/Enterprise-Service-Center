@@ -12,46 +12,75 @@
         style="margin-bottom: 16px; word-break: break-all"
       />
 
-      <el-form :model="form" label-width="100px" class="login-form">
-        <el-form-item label="用户ID">
-          <el-input v-model="form.platformUserId" />
+      <!-- 正式登录：统一身份认证（BSPPLUS）账号密码。角色/区划/数据权限一律不在
+           这里选择——全部由本系统"管理员管理"预先分配，登录只做身份核验。 -->
+      <el-form :model="form" label-width="80px" class="login-form" @submit.prevent="handleLogin">
+        <el-form-item label="账号">
+          <el-input v-model="form.username" autocomplete="username" placeholder="统一身份平台账号" />
         </el-form-item>
-        <el-form-item label="用户名">
-          <el-input v-model="form.username" />
-        </el-form-item>
-        <el-form-item label="真实姓名">
-          <el-input v-model="form.realName" />
-        </el-form-item>
-        <el-form-item label="部门ID">
-          <el-input v-model="form.departmentId" />
-        </el-form-item>
-        <el-form-item label="部门名称">
-          <el-input v-model="form.departmentName" />
-        </el-form-item>
-        <el-form-item label="区域代码">
-          <el-input v-model="form.regionCode" />
-        </el-form-item>
-        <el-form-item label="区域名称">
-          <el-input v-model="form.regionName" />
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="form.roleCodes" multiple style="width: 100%" placeholder="选择一个或多个角色">
-            <el-option v-for="r in ROLE_OPTIONS" :key="r.value" :label="r.label" :value="r.value" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="数据范围">
-          <el-select v-model="form.dataScope" style="width: 100%">
-            <el-option label="全部（市级/平台）" value="ALL" />
-            <el-option label="本区县/本企服中心" value="REGION" />
-            <el-option label="本部门" value="DEPARTMENT" />
-          </el-select>
+        <el-form-item label="密码">
+          <el-input
+            v-model="form.password"
+            type="password"
+            show-password
+            autocomplete="current-password"
+            placeholder="统一身份平台密码"
+            @keyup.enter="handleLogin"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" style="width: 100%" @click="handleLogin">
-            模拟登录
+            登录
           </el-button>
         </el-form-item>
       </el-form>
+
+      <!-- 开发调试登录：仅开发构建（import.meta.env.DEV）渲染，生产构建产物里
+           不含这段代码；后端 /api/auth/admin/mock-login 在生产环境本身也会
+           返回 404（见 app/api/auth/router.py），前后端双重把关。 -->
+      <template v-if="isDev">
+        <el-divider>开发调试登录（仅开发环境）</el-divider>
+        <el-form :model="mockForm" label-width="100px" class="login-form">
+          <el-form-item label="用户ID">
+            <el-input v-model="mockForm.platformUserId" />
+          </el-form-item>
+          <el-form-item label="用户名">
+            <el-input v-model="mockForm.username" />
+          </el-form-item>
+          <el-form-item label="真实姓名">
+            <el-input v-model="mockForm.realName" />
+          </el-form-item>
+          <el-form-item label="部门ID">
+            <el-input v-model="mockForm.departmentId" />
+          </el-form-item>
+          <el-form-item label="部门名称">
+            <el-input v-model="mockForm.departmentName" />
+          </el-form-item>
+          <el-form-item label="区域代码">
+            <el-input v-model="mockForm.regionCode" />
+          </el-form-item>
+          <el-form-item label="区域名称">
+            <el-input v-model="mockForm.regionName" />
+          </el-form-item>
+          <el-form-item label="角色">
+            <el-select v-model="mockForm.roleCodes" multiple style="width: 100%" placeholder="选择一个或多个角色">
+              <el-option v-for="r in ROLE_OPTIONS" :key="r.value" :label="r.label" :value="r.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="数据范围">
+            <el-select v-model="mockForm.dataScope" style="width: 100%">
+              <el-option label="全部（市级/平台）" value="ALL" />
+              <el-option label="本区县/本企服中心" value="REGION" />
+              <el-option label="本部门" value="DEPARTMENT" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button :loading="mockLoading" style="width: 100%" @click="handleMockLogin">
+              模拟登录
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </template>
     </div>
   </div>
 </template>
@@ -60,24 +89,53 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ADMIN_ROLE_OPTIONS } from '@/constants/permission'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loading = ref(false)
+const mockLoading = ref(false)
 const errorMsg = ref('')
-
-// 角色编码取自 第一阶段数据库与后端接口设计说明.md §13.2（项目唯一的角色设计依据），
-// 与后端 app/constants/permission.py::AdminRole 保持一致，不在这里自造角色。
-const ROLE_OPTIONS = [
-  { label: '平台管理员 (PLATFORM_ADMIN)', value: 'PLATFORM_ADMIN' },
-  { label: '市级管理员 (CITY_ADMIN)', value: 'CITY_ADMIN' },
-  { label: '企服中心管理员 (CENTER_ADMIN)', value: 'CENTER_ADMIN' },
-  { label: '企服中心工作人员 (CENTER_STAFF)', value: 'CENTER_STAFF' },
-  { label: '部门办理人员 (DEPT_USER)', value: 'DEPT_USER' },
-  { label: '会议室管理员 (ROOM_ADMIN)', value: 'ROOM_ADMIN' },
-]
+const isDev = import.meta.env.DEV
 
 const form = ref({
+  username: '',
+  password: '',
+})
+
+function _describeError(err: unknown): string {
+  const e = err as Error & { code?: string; response?: { status: number; data?: { message?: string } } }
+  if (import.meta.env.DEV) console.error('[Login] failed:', e)
+  if (e.code === 'ERR_NETWORK') {
+    return '无法连接后端，请确认服务已启动且 Vite proxy 配置正确'
+  }
+  return e.message || '登录失败，请检查控制台'
+}
+
+async function handleLogin() {
+  errorMsg.value = ''
+  if (!form.value.username || !form.value.password) {
+    errorMsg.value = '请输入账号和密码'
+    return
+  }
+  loading.value = true
+  try {
+    await authStore.loginWithPassword({ username: form.value.username, password: form.value.password })
+    router.push('/dashboard')
+  } catch (err: unknown) {
+    errorMsg.value = _describeError(err)
+  } finally {
+    // 密码只应活在这次请求的生命周期内：无论成功失败，提交后立即清空，
+    // 不在表单/内存里继续保留明文密码。
+    form.value.password = ''
+    loading.value = false
+  }
+}
+
+// ── 开发调试登录（仅 DEV 构建）──────────────────────────────────────────────────
+const ROLE_OPTIONS = ADMIN_ROLE_OPTIONS
+
+const mockForm = ref({
   platformUserId: 'u001',
   username: 'admin',
   realName: '管理员',
@@ -89,22 +147,16 @@ const form = ref({
   roleCodes: ['CENTER_ADMIN'] as string[],
 })
 
-async function handleLogin() {
+async function handleMockLogin() {
   errorMsg.value = ''
-  loading.value = true
+  mockLoading.value = true
   try {
-    await authStore.login({ ...form.value })
+    await authStore.login({ ...mockForm.value })
     router.push('/dashboard')
   } catch (err: unknown) {
-    const e = err as Error & { code?: string; response?: { status: number; data?: { message?: string } } }
-    if (import.meta.env.DEV) console.error('[Login] failed:', e)
-    if (e.code === 'ERR_NETWORK') {
-      errorMsg.value = '无法连接后端，请确认服务已启动且 Vite proxy 配置正确'
-    } else {
-      errorMsg.value = e.message || '登录失败，请检查控制台'
-    }
+    errorMsg.value = _describeError(err)
   } finally {
-    loading.value = false
+    mockLoading.value = false
   }
 }
 </script>

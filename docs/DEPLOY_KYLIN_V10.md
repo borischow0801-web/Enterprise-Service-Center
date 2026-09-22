@@ -837,37 +837,47 @@ ss -lntp | grep 8000
 
 ## 21. Mock 登录与统一身份认证切换说明
 
-### 21.1 当前测试能力（代码已实现）
+> 本节内容已随管理端统一身份认证改造更新（管理端已接入 BSPPLUS，企业端仍是 21.2 的
+> 待办）。更细的 BSPPLUS 联调/故障排查见
+> `docs/KYLIN_V10_PRODUCTION_DEPLOYMENT_GUIDE.md` 对应小节。
 
-| 端 | 页面/接口 | 路径 |
-|----|-----------|------|
-| 企业端 Mock 页 | `enterprise-h5` → `/login`（`MockLogin.vue`） | 前端路由 |
-| 企业端 Mock 接口 | `POST /api/auth/enterprise/mock-login` | `app/api/auth/router.py` |
-| 管理端 Mock 页 | `admin-web` → `/login` | 前端路由 |
-| 管理端 Mock 接口 | `POST /api/auth/admin/mock-login` | `app/api/auth/router.py` |
+### 21.1 当前能力（代码已实现）
 
-认证适配预留：`app/services/auth_adapter.py`（当前为 `MockAuthAdapter`）。
+| 端 | 页面/接口 | 路径 | 生产环境行为 |
+|----|-----------|------|------|
+| 企业端 Mock 页 | `enterprise-h5` → `/login`（`MockLogin.vue`） | 前端路由 | 仍待 21.2 |
+| 企业端 Mock 接口 | `POST /api/auth/enterprise/mock-login` | `app/api/auth/router.py` | `APP_ENV=production` 时返回 404（代码层网关，已实现） |
+| 管理端正式登录页 | `admin-web` → `/login`（账号+密码） | 前端路由 | 生产唯一入口 |
+| 管理端正式登录接口 | `POST /api/auth/admin/login` | `app/api/auth/router.py` → `app/services/admin_auth_service.py` → `app/services/bsp_client.py` | 调用 BSPPLUS `/user/login`，认证与授权分离（角色/数据权限来自本地 `sys_admin_user` 表，不来自 BSP） |
+| 管理端 Mock 登录页（开发调试） | `admin-web` → `/login` 页面内"开发调试登录"折叠区 | 前端路由，仅 `import.meta.env.DEV` 渲染 | 生产构建产物中不含该区块 |
+| 管理端 Mock 接口 | `POST /api/auth/admin/mock-login` | `app/api/auth/router.py` | `APP_ENV=production` 时返回 404（代码层网关，已实现，与正式登录接口相互独立） |
+| 管理员账号/角色维护 | `admin-web` → 系统管理 → 管理员管理 | `POST/PUT/PATCH /api/admin/admin-users` | 仅 `PLATFORM_ADMIN`/`CITY_ADMIN` 可访问（`ADMIN_USER_MANAGE` 权限） |
+
+认证适配预留：`app/services/auth_adapter.py`（当前为 `MockAuthAdapter`，企业端后续接入省统一身份认证时使用；管理端 BSPPLUS 走独立的 `bsp_client.py`/`admin_auth_service.py`，未复用这层抽象——两条链路场景不同，见 `app/services/admin_auth_service.py` 顶部说明）。
 
 ### 21.2 生产环境必须完成的事项
 
-1. **禁用或隐藏**企业端 Mock 登录页（`/login`）；  
-2. **禁用或限制** `POST /api/auth/enterprise/mock-login`（网关或代码层）；  
-3. **禁用或限制** `POST /api/auth/admin/mock-login`；  
-4. 企业端接入**省级统一身份认证**；  
-5. 管理端接入**政务服务平台统一用户体系**；  
-6. 确认 `redirect` 回跳：菜单直链进入 → 认证 → 回到原路径（如 `/appeals`），**不应强制仅回 `/home`**；  
-7. 微信公众号菜单入口在认证后能正常进入业务页。  
+1. **禁用或隐藏**企业端 Mock 登录页（`/login`）——**仍待办**；  
+2. **禁用或限制** `POST /api/auth/enterprise/mock-login`——**已实现**（`APP_ENV=production` 网关）；  
+3. **禁用或限制** `POST /api/auth/admin/mock-login`——**已实现**（`APP_ENV=production` 网关）；  
+4. 企业端接入**省级统一身份认证**——**仍待办**；  
+5. 管理端接入**政务服务平台统一用户体系（BSPPLUS）**——**已实现**（`/user/login`，账号密码方式；未采用 oauthCode/单点登录方式，理由见需求确认记录）；  
+6. 确认 `redirect` 回跳：菜单直链进入 → 认证 → 回到原路径（如 `/appeals`），**不应强制仅回 `/home`**——与本次管理端改造无关，仍按原状态；  
+7. 微信公众号菜单入口在认证后能正常进入业务页——与本次管理端改造无关，仍按原状态。
 
 ### 21.3 配置项说明
 
-> **当前项目未发现**统一的 `ENABLE_MOCK_LOGIN` 环境变量。  
-> **建议后续增加**例如 `ENABLE_MOCK_LOGIN=false`，并在 `app/api/auth/router.py` 与前端路由守卫中读取；生产部署前需开发发版配合。
+管理端不需要额外的 `ENABLE_MOCK_LOGIN` 开关——`app/api/auth/router.py` 中
+`admin_mock_login`/`enterprise_mock_login` 在 `settings.app_env == "production"` 时
+直接 `raise NotFoundException`（见该文件），已经是代码层强制网关，不依赖 Nginx/发版配合，
+也不依赖运维手工关闭。生产 `.env` 只要 `APP_ENV=production`，两个 mock-login 接口自动 404。
 
-在开关未实现前，生产可采取：
+管理端正式登录额外依赖 `BSPPLUS_API_ROOT`/`BSPPLUS_APP_CODE` 两项配置（见
+`docs/KYLIN_V10_PRODUCTION_DEPLOYMENT_GUIDE.md` "部署前信息收集表"/"创建 .env" 小节）；
+`APP_ENV=production` 时这两项未配置会导致应用启动直接失败（同 `APP_SECRET_KEY` 校验逻辑）。
 
-- Nginx 对 `/api/auth/*/mock-login` 返回 403；  
-- 不部署企业端 `/login` 相关入口（需构建时移除或路由拦截，依赖发版）；  
-- 仅内网 IP 白名单访问管理端。
+企业端 Mock 登录页目前仍需按原方案处理（Nginx 拦截 `/api/auth/enterprise/mock-login` 已由
+代码网关取代，无需再靠 Nginx；企业端 `/login` 页面本身的隐藏仍待办，不在本次管理端改造范围内）。
 
 ---
 
@@ -959,8 +969,8 @@ tar -czf /opt/enterprise-service-center/backup/uploads_$(date +%F).tar.gz \
 | `VITE_API_BASE_URL` | 同域留空；跨域写完整 API 根地址 |
 | systemd `WorkingDirectory` | 后端根目录（含 `app/` 的目录） |
 | CORS `allow_origins` | 跨域时需改 `app/main.py` 并发版 |
-| Mock 关闭方式 | 暂靠 Nginx/发版；无环境变量开关 |
-| 统一身份认证对接参数 | 由省级平台、政务平台提供 |
+| Mock 关闭方式 | 已实现：`app/api/auth/router.py` 按 `APP_ENV=production` 在代码层直接 404，无需 Nginx/发版配合 |
+| 统一身份认证对接参数 | 管理端 `BSPPLUS_API_ROOT`/`BSPPLUS_APP_CODE` 已由统一身份平台负责人部分提供（见 `deploy/.env`），`APP_CODE` 待确认；企业端省级统一身份认证参数仍待省级平台提供 |
 | 防火墙与 SELinux | 是否放行 Nginx、MySQL、本地 8000 |
 | 备份保留周期与异地策略 | 单位运维规范 |
 
@@ -978,8 +988,10 @@ tar -czf /opt/enterprise-service-center/backup/uploads_$(date +%F).tar.gz \
 常用接口：
 
 - `GET /api/health`  
-- `POST /api/auth/enterprise/mock-login`  
-- `POST /api/auth/admin/mock-login`  
+- `POST /api/auth/admin/login`（正式登录，BSPPLUS）  
+- `POST /api/auth/enterprise/mock-login`（`APP_ENV=production` 时 404）  
+- `POST /api/auth/admin/mock-login`（`APP_ENV=production` 时 404）  
+- `GET /api/admin/admin-users/page`（管理员管理，需 `ADMIN_USER_MANAGE` 权限）  
 - `POST /api/common/attachments/upload`  
 - `GET /api/common/attachments/{id}/download`  
 

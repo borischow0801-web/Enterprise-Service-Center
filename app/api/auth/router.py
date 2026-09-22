@@ -10,12 +10,14 @@ from app.core.exceptions import NotFoundException
 from app.schemas.auth import (
     EnterpriseMockLoginRequest,
     AdminMockLoginRequest,
+    AdminLoginRequest,
     EnterpriseRegisterRequest,
     EnterpriseLoginRequest,
 )
 from app.repositories.enterprise_repo import EnterpriseRepository
 from app.repositories.sys_user_repo import SysUserSnapshotRepository
 from app.services.enterprise_auth_service import EnterpriseAuthService
+from app.services.admin_auth_service import AdminAuthService
 
 router = APIRouter()
 
@@ -93,6 +95,20 @@ def enterprise_mock_login(body: EnterpriseMockLoginRequest, db: Session = Depend
             "accessToken": access_token,
             "tokenType": "Bearer",
             "expiresIn": settings.jwt_enterprise_expire_minutes * 60,
+        },
+        message="登录成功",
+    )
+
+
+@router.post("/admin/login", summary="管理端正式登录（统一身份认证 BSPPLUS）")
+def admin_login(body: AdminLoginRequest, db: Session = Depends(get_db)):
+    svc = AdminAuthService(db)
+    result = svc.login(body.username, body.password)
+    return success(
+        data={
+            "accessToken": result["accessToken"],
+            "tokenType": "Bearer",
+            "expiresIn": settings.jwt_admin_expire_minutes * 60,
         },
         message="登录成功",
     )

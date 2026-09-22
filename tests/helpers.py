@@ -23,6 +23,14 @@ def unique_platform_user_id(prefix: str = "u") -> str:
     return f"{prefix}_{secrets.token_hex(6)}"
 
 
+def unique_bsp_user_id() -> str:
+    return f"bsp_{secrets.token_hex(10)}"
+
+
+def unique_admin_username() -> str:
+    return f"admin_{secrets.token_hex(6)}"
+
+
 def register_and_login(client, *, credit_code: str | None = None, password: str = "Passw0rd1", **overrides) -> dict:
     """Registers a fresh enterprise and returns {token, creditCode, password}."""
     credit_code = credit_code or unique_credit_code()

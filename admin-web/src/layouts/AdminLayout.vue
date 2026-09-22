@@ -37,13 +37,17 @@
           <span>政企约见</span>
         </el-menu-item>
 
-        <el-sub-menu v-if="hasPermission(Permission.DICT_MANAGE, Permission.OPERATION_LOG_VIEW)" index="system">
+        <el-sub-menu
+          v-if="hasPermission(Permission.DICT_MANAGE, Permission.OPERATION_LOG_VIEW, Permission.ADMIN_USER_MANAGE)"
+          index="system"
+        >
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
           <el-menu-item v-permission="Permission.DICT_MANAGE" index="/system/dictionaries">字典管理</el-menu-item>
           <el-menu-item v-permission="Permission.OPERATION_LOG_VIEW" index="/system/operation-logs">操作日志</el-menu-item>
+          <el-menu-item v-permission="Permission.ADMIN_USER_MANAGE" index="/system/admin-users">管理员管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>

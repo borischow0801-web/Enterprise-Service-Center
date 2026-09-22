@@ -3,4 +3,5 @@
 -r requirements.txt
 
 pytest==8.3.3
-httpx==0.28.1
+# httpx 已在 requirements.txt 中（app/services/bsp_client.py 运行时依赖），
+# TestClient 用的也是同一份，这里不再重复声明。

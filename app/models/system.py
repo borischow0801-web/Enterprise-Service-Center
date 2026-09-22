@@ -39,6 +39,13 @@ class ServiceCenter(TimestampMixin, Base):
 
 
 class SysUserSnapshot(TimestampMixin, Base):
+    """仅供 admin_mock_login（开发/测试模拟登录）使用的身份快照表。
+
+    字段全部由调用方自报、零校验——这是它作为"mock 登录"存在的本意，不是缺陷。
+    正式的、经统一身份认证（BSPPLUS）核实身份后签发的管理端账号，一律使用
+    SysAdminUser，两张表互不混用、互不参照，避免自报数据污染正式 RBAC 数据。
+    """
+
     __tablename__ = "sys_user_snapshot"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -54,6 +61,41 @@ class SysUserSnapshot(TimestampMixin, Base):
     role_names: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     data_scope: Mapped[str] = mapped_column(String(50), nullable=False)
     last_login_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+
+class AdminUserStatus:
+    ACTIVE = "ACTIVE"
+    DISABLED = "DISABLED"
+
+
+class SysAdminUser(TimestampMixin, Base):
+    """正式管理端账号——统一身份认证（BSPPLUS）登录的匹配/角色分配来源。
+
+    与 SysUserSnapshot 的关键区别：本表的 role_codes/data_scope/region_code/
+    department_id 只能由本系统的管理员管理界面（或运维预置）写入，BSP 登录流程
+    只读取这些字段用于签发 JWT，绝不会在登录时被请求体或 BSP 返回值覆盖——
+    这是"BSP 只管认证、本系统管授权"这条原则在数据层的落地。
+    """
+
+    __tablename__ = "sys_admin_user"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # BSP 侧稳定用户内码（对应文档 user.id）。首次通过 username 安全绑定前为空。
+    bsp_user_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, unique=True, index=True)
+    # BSP 登录账号（对应文档 user.username/account），本系统内也保持唯一，
+    # 用于 bsp_user_id 尚未绑定时的首次安全绑定匹配。
+    username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    real_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    mobile: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default=AdminUserStatus.ACTIVE)
+    # 角色/数据权限：只能由管理员管理界面写入，登录流程只读不写。
+    role_codes: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    data_scope: Mapped[str] = mapped_column(String(50), nullable=False, default="SELF")
+    region_code: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, index=True)
+    region_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    department_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    department_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
 
 class SysDictionary(TimestampMixin, Base):

@@ -77,6 +77,12 @@ const router = createRouter({
           name: 'OperationLog',
           component: () => import('@/views/system/OperationLog.vue'),
           meta: { title: '操作日志', permission: Permission.OPERATION_LOG_VIEW }
+        },
+        {
+          path: 'system/admin-users',
+          name: 'AdminUserList',
+          component: () => import('@/views/system/AdminUserList.vue'),
+          meta: { title: '管理员管理', permission: Permission.ADMIN_USER_MANAGE }
         }
       ]
     },

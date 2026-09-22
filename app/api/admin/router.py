@@ -12,6 +12,7 @@ from app.core.exceptions import NotFoundException, ParamException
 from app.constants.permission import resolve_scope_branch, ScopeBranch
 from app.models.system import ServiceCenter, SysOperationLog
 from app.repositories.sys_user_repo import SysUserSnapshotRepository
+from app.repositories.admin_user_repo import AdminUserRepository
 from app.api.admin.appeals import router as admin_appeals_router
 from app.api.admin.meeting_rooms import router as admin_meeting_rooms_router
 from app.api.admin.meeting_bookings import router as admin_meeting_bookings_router
@@ -19,6 +20,7 @@ from app.api.admin.gov_meetings import router as admin_gov_meetings_router
 from app.api.admin.dictionaries import router as admin_dict_router
 from app.api.admin.operation_logs import router as admin_op_log_router
 from app.api.admin.dashboard import router as admin_dashboard_router
+from app.api.admin.admin_users import router as admin_admin_users_router
 
 router = APIRouter()
 
@@ -29,6 +31,7 @@ router.include_router(admin_gov_meetings_router, prefix="/gov-meetings", tags=["
 router.include_router(admin_dict_router, prefix="/dictionaries", tags=["管理端-字典"])
 router.include_router(admin_op_log_router, prefix="/operation-logs", tags=["管理端-操作日志"])
 router.include_router(admin_dashboard_router, prefix="/dashboard", tags=["管理端-工作台"])
+router.include_router(admin_admin_users_router, prefix="/admin-users", tags=["管理端-管理员管理"])
 
 
 def _service_center_to_dict(item: ServiceCenter) -> dict:
@@ -208,6 +211,29 @@ def get_admin_me(current: CurrentAdmin, db: Session = Depends(get_db)):
     user_id = current.get("user_id")
     if not user_id:
         raise NotFoundException("用户信息不存在")
+
+    # admin_source 缺失（历史 token）或非 "BSP" 一律按 mock-login 的 sys_user_snapshot
+    # 处理，保持旧行为不变；正式统一身份认证登录签发的 token 带 admin_source="BSP"，
+    # 查 sys_admin_user。两张表主键空间独立，必须按来源分流，不能混查。
+    if current.get("admin_source") == "BSP":
+        admin_repo = AdminUserRepository(db)
+        admin = admin_repo.get_by_id(user_id)
+        if admin is None:
+            raise NotFoundException("用户信息不存在")
+        return success(data={
+            "id": admin.id,
+            "platformUserId": admin.bsp_user_id,
+            "username": admin.username,
+            "realName": admin.real_name,
+            "mobile": admin.mobile,
+            "departmentId": admin.department_id,
+            "departmentName": admin.department_name,
+            "regionCode": admin.region_code,
+            "regionName": admin.region_name,
+            "roleCodes": admin.role_codes.split(",") if admin.role_codes else [],
+            "dataScope": admin.data_scope,
+            "lastLoginTime": admin.last_login_at.isoformat() if admin.last_login_at else None,
+        })
 
     repo = SysUserSnapshotRepository(db)
     user = repo.get_by_id(user_id)

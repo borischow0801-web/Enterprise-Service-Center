@@ -33,6 +33,15 @@ export interface AdminUser {
   lastLoginTime?: string
 }
 
+export interface AdminPasswordLoginParams {
+  username: string
+  password: string
+}
+
+export function adminLogin(params: AdminPasswordLoginParams): Promise<TokenResult> {
+  return post<TokenResult>('/api/auth/admin/login', params)
+}
+
 export function adminMockLogin(params: AdminLoginParams): Promise<TokenResult> {
   return post<TokenResult>('/api/auth/admin/mock-login', params)
 }

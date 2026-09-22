@@ -8,6 +8,8 @@ from app.models.enterprise import (  # noqa: F401
 from app.models.system import (  # noqa: F401
     ServiceCenter,
     SysUserSnapshot,
+    SysAdminUser,
+    AdminUserStatus,
     SysDictionary,
     SysAttachment,
     SysMessageRecord,

@@ -53,6 +53,14 @@ class EnterpriseMockLoginRequest(BaseModel):
     legalPersonMobile: str = Field(..., description="法人手机号")
 
 
+class AdminLoginRequest(BaseModel):
+    """正式管理端登录——统一身份认证（BSPPLUS）。角色/数据权限一律不接受前端提交，
+    只能来自本系统数据库（见 app/services/admin_auth_service.py）。"""
+
+    username: str = Field(..., min_length=1, max_length=100, description="统一身份平台账号")
+    password: str = Field(..., min_length=1, max_length=128, description="统一身份平台密码")
+
+
 class AdminMockLoginRequest(BaseModel):
     platformUserId: str = Field(..., description="平台用户ID")
     username: str = Field(..., description="用户名")

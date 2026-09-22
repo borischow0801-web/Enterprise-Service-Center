@@ -24,6 +24,8 @@
 | 镜像版本 | `<IMAGE_TAG>` |
 | CORS Origin | `https://<DOMAIN>` |
 | APP_SECRET_KEY | 使用 `openssl rand -base64 48` 生成 |
+| BSPPLUS_API_ROOT | 由统一身份平台负责人提供（管理端登录依赖，生产启动前必须非空） |
+| BSPPLUS_APP_CODE | 由统一身份平台负责人提供（管理端登录依赖，生产启动前必须非空） |
 
 ## 3. 应用服务器系统检查
 
@@ -280,9 +282,16 @@ CORS_ALLOWED_ORIGINS=https://<DOMAIN>
 UPLOAD_DIR=/data/uploads
 UPLOADS_HOST_DIR=/data/enterprise-center/uploads
 HTTP_PORT=80
+BSPPLUS_API_ROOT=<统一身份平台提供的地址，如 http://172.29.91.36:9099>
+BSPPLUS_APP_CODE=<统一身份平台提供的应用编码>
 ```
 
 `.env` 不得提交 Git，不得填占位 Secret。
+
+管理端正式登录（`POST /api/auth/admin/login`）依赖 `BSPPLUS_API_ROOT`/`BSPPLUS_APP_CODE`；
+`APP_ENV=production` 时若这两项未配置，应用会在启动阶段直接报错退出（同 `APP_SECRET_KEY`
+校验逻辑一致，见下方"常见故障"）。管理端账号本身（角色/区划/数据权限）在
+"系统管理 → 管理员管理"里维护，登录只做身份核验，不会自动开通新管理员。
 
 ## 18. 数据库连通测试
 
@@ -573,6 +582,24 @@ openssl rand -base64 48
 vi .env
 docker compose up -d
 ```
+
+### BSPPLUS_API_ROOT / BSPPLUS_APP_CODE 校验失败
+
+检查日志若出现“APP_ENV=production 但 BSPPLUS_API_ROOT / BSPPLUS_APP_CODE 未配置”，说明
+`.env` 里这两项为空或未设置。找统一身份平台负责人拿到实际地址和应用编码后填入 `.env`
+重启即可；开发/测试环境（`APP_ENV` 非 `production`）不受此校验影响。
+
+### 管理端登录报"统一身份认证服务暂时不可用"
+
+说明后端到 `BSPPLUS_API_ROOT` 网络不通，或 BSPPLUS 服务本身异常。可用以下脚本单独排查
+（交互式输入账号密码，密码不回显、不落日志，只打印脱敏后的用户字段）：
+
+```bash
+docker compose exec backend python scripts/bspplus_login_check.py
+```
+
+若脚本本身也超时/连接失败，先确认应用服务器到 `BSPPLUS_API_ROOT` 的网络（防火墙/路由/
+是否需要专线），这一步和本系统代码无关。
 
 ### migration 失败
 

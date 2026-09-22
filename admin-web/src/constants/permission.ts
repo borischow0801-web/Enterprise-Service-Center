@@ -18,6 +18,7 @@ export const Permission = {
   DICT_MANAGE: 'DICT_MANAGE',
   OPERATION_LOG_VIEW: 'OPERATION_LOG_VIEW',
   DASHBOARD_VIEW: 'DASHBOARD_VIEW',
+  ADMIN_USER_MANAGE: 'ADMIN_USER_MANAGE',
 } as const
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission]
@@ -63,3 +64,15 @@ export function permissionsForRoles(roleCodes: string[] | undefined | null): Set
   }
   return result
 }
+
+/** 角色编码取自 第一阶段数据库与后端接口设计说明.md §13.2，与后端
+ * app/constants/permission.py::AdminRole 保持一致。登录页（开发调试登录）和
+ * 管理员管理页共用同一份，避免角色文案在两处漂移。 */
+export const ADMIN_ROLE_OPTIONS: { label: string; value: string }[] = [
+  { label: '平台管理员 (PLATFORM_ADMIN)', value: 'PLATFORM_ADMIN' },
+  { label: '市级管理员 (CITY_ADMIN)', value: 'CITY_ADMIN' },
+  { label: '企服中心管理员 (CENTER_ADMIN)', value: 'CENTER_ADMIN' },
+  { label: '企服中心工作人员 (CENTER_STAFF)', value: 'CENTER_STAFF' },
+  { label: '部门办理人员 (DEPT_USER)', value: 'DEPT_USER' },
+  { label: '会议室管理员 (ROOM_ADMIN)', value: 'ROOM_ADMIN' },
+]
