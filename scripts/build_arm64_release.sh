@@ -81,7 +81,10 @@ docker save \
     "${WEB_IMAGE}" \
     -o "${IMAGE_TAR}"
 
-sha256sum "${IMAGE_TAR}" > "${SHA_FILE}"
+(
+    cd "${RELEASE_DIR}"
+    sha256sum "$(basename "${IMAGE_TAR}")" > "$(basename "${SHA_FILE}")"
+)
 
 echo
 echo "========================================"
